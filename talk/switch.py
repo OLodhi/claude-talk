@@ -50,6 +50,31 @@ def turn_off(session_id: str) -> None:
         pass
 
 
+def _last_speech_file(session_id: str) -> Path:
+    marker = _marker(session_id)
+    return marker.with_name(f"{marker.name}.last")  # markers never contain ".", so this never clashes
+
+
+def save_last_speech(session_id: str, text: str) -> None:
+    """Keep what was just spoken, for /talk again. Swept with the markers after STALE_AFTER_DAYS."""
+    _last_speech_file(session_id).write_text(text, encoding="utf-8")
+
+
+def last_speech(session_id: str) -> str | None:
+    try:
+        text = _last_speech_file(session_id).read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return None
+    return text or None
+
+
+def forget_last_speech(session_id: str) -> None:
+    try:
+        _last_speech_file(session_id).unlink(missing_ok=True)
+    except ValueError:
+        pass
+
+
 def toggle(session_id: str, prompt_id: str | None = None) -> bool:
     """Flip talk mode and return the new state.
 

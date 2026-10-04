@@ -88,3 +88,31 @@ def test_unknown_word_in_a_marker_means_default():
 def test_mode_of_missing_or_bad_sessions_is_none():
     assert switch.mode("nobody") is None
     assert switch.mode("") is None
+
+
+def test_last_speech_is_kept_per_session():
+    switch.save_last_speech("s1", "First reply.")
+    switch.save_last_speech("s2", "Other session.")
+    switch.save_last_speech("s1", "Second reply.")
+    assert switch.last_speech("s1") == "Second reply."
+    assert switch.last_speech("s2") == "Other session."
+
+
+def test_last_speech_does_not_turn_talk_on_and_survives_turning_off():
+    switch.save_last_speech("s1", "Hello.")
+    assert switch.is_on("s1") is False
+    switch.turn_on("s1")
+    switch.turn_off("s1")
+    assert switch.last_speech("s1") == "Hello."
+
+
+def test_forgetting_the_last_speech():
+    switch.save_last_speech("s1", "Hello.")
+    switch.forget_last_speech("s1")
+    assert switch.last_speech("s1") is None
+
+
+def test_last_speech_of_missing_or_bad_sessions():
+    assert switch.last_speech("nobody") is None
+    assert switch.last_speech("") is None
+    switch.forget_last_speech("")  # never raises

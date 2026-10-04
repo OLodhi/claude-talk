@@ -262,3 +262,91 @@ def test_session_without_a_mode_follows_config_on_each_reply(calls, talk_home):
     (talk_home / "config.json").write_text('{"mode": "summary"}', encoding="utf-8")
     run("stop", {"session_id": "s1", "last_assistant_message": "Body text.\n\n🔊 Short version."})
     assert calls["start"] == [("Short version.", "s1")]
+
+
+def test_speed_is_saved_as_a_percentage():
+    from talk import speed
+
+    result = run("toggle", {"session_id": "s1", "command_args": "speed 150"})
+    assert result == block("\u23e9 Speed set to 150%. It applies from the next reply.")
+    assert speed.load() == 150
+    assert not switch.is_on("s1")  # setting the speed never turns talk on or off
+
+
+def test_speed_from_a_raw_prompt_with_a_percent_sign():
+    from talk import speed
+
+    typed = {"session_id": "s1", "prompt_id": "p1", "prompt": "/talk Speed 120%", "prompt_source": "user_input"}
+    assert run("prompt", typed) == block("\u23e9 Speed set to 120%. It applies from the next reply.")
+    assert speed.load() == 120
+
+
+@pytest.mark.parametrize("asked, saved, note", [
+    ("300", 200, "the fastest Microsoft's voice goes"),
+    ("20", 50, "the slowest Microsoft's voice goes"),
+])
+def test_speed_outside_the_voice_range_is_capped(asked, saved, note):
+    from talk import speed
+
+    result = run("toggle", {"session_id": "s1", "command_args": f"speed {asked}"})
+    assert result == block(f"\u23e9 Speed set to {saved}% ({note}). It applies from the next reply.")
+    assert speed.load() == saved
+
+
+def test_speed_on_its_own_reports_the_current_speed():
+    assert run("toggle", {"session_id": "s1", "command_args": "speed"}) == block(
+        "\u23e9 Speed is 100%. Use /talk speed 50 to 200 to change it; 100 is normal."
+    )
+
+
+def test_speed_that_is_not_a_number_changes_nothing():
+    from talk import speed
+
+    assert run("toggle", {"session_id": "s1", "command_args": "speed fast"}) == block(
+        '\u26a0\ufe0f "fast" isn\'t a speed. Use /talk speed with a number from 50 to 200, for example /talk speed 150.'
+    )
+    assert speed.load() is None
+
+
+def test_stop_remembers_what_it_spoke():
+    switch.turn_on("s1")
+    run("stop", {"session_id": "s1", "last_assistant_message": "**Done.** See `src/a/b.py`."})
+    assert switch.last_speech("s1") == "Done. See b.py."
+
+
+@pytest.mark.parametrize("word", ["again", "repeat", "AGAIN"])
+def test_talk_again_replays_the_last_speech(calls, word):
+    switch.turn_on("s1")
+    run("stop", {"session_id": "s1", "last_assistant_message": "The fix is in."})
+    calls["start"].clear()
+    assert run("toggle", {"session_id": "s1", "command_args": word}) == block("\U0001F501 Repeating the last reply.")
+    assert calls["start"] == [("The fix is in.", "s1")]
+
+
+def test_talk_again_works_after_talk_is_turned_off(calls):
+    switch.turn_on("s1")
+    run("stop", {"session_id": "s1", "last_assistant_message": "The fix is in."})
+    switch.turn_off("s1")
+    calls["start"].clear()
+    typed = {"session_id": "s1", "prompt_id": "p9", "prompt": "/talk again", "prompt_source": "user_input"}
+    assert run("prompt", typed) == block("\U0001F501 Repeating the last reply.")
+    assert calls["start"] == [("The fix is in.", "s1")]
+    assert not switch.is_on("s1")
+
+
+def test_talk_again_with_nothing_spoken_yet(calls):
+    assert run("toggle", {"session_id": "s1", "command_args": "again"}) == block("\U0001F501 Nothing to repeat yet.")
+    assert calls["start"] == []
+
+
+def test_session_end_forgets_the_last_speech():
+    switch.turn_on("s1")
+    run("stop", {"session_id": "s1", "last_assistant_message": "The fix is in."})
+    run("session-end", {"session_id": "s1"})
+    assert switch.last_speech("s1") is None
+
+
+def test_unknown_option_lists_every_command():
+    message = hooks.unknown_mode_message("loud")
+    for option in ("/talk gist", "/talk full", "/talk summary", "/talk again", "/talk speed"):
+        assert option in message

@@ -8,7 +8,7 @@ import sys
 import time
 from typing import BinaryIO
 
-from talk import control, paths, procs, switch
+from talk import control, paths, procs, speed, switch
 from talk.config import MODES, Config, load_config
 from talk.log import get_logger
 from talk.speakable import full_speech, summary_speech, to_speech
@@ -49,7 +49,10 @@ def talk_on_message(mode: str) -> str:
 
 
 def unknown_mode_message(word: str) -> str:
-    return f'⚠\ufe0f Unknown talk mode "{word}". Use /talk, /talk gist, /talk full or /talk summary.'
+    return (
+        f'⚠\ufe0f Unknown talk option "{word}". Use /talk, /talk gist, /talk full, /talk summary, '
+        "/talk again or /talk speed 50-200."
+    )
 
 
 def setup_broken() -> str:
@@ -67,20 +70,52 @@ def _block(reason: str) -> dict:
     return {"decision": "block", "reason": reason}
 
 
-def _first_word(text) -> str:
-    words = text.split() if isinstance(text, str) else []
-    return words[0].lower() if words else ""
-
-
 def _session_mode(session_id: str, cfg: Config) -> str:
     return switch.mode(session_id) or cfg.mode
 
 
+def _speed_command(typed: str) -> str:
+    """/talk speed [percent]: report the speed, or save a new one (capped to what the voice can do)."""
+    if not typed:
+        current = speed.current(load_config().rate)
+        return f"⏩ Speed is {current}%. Use /talk speed 50 to 200 to change it; 100 is normal."
+    asked = speed.parse(typed)
+    if asked is None:
+        return (
+            f'⚠\ufe0f "{typed}" isn\'t a speed. Use /talk speed with a number from 50 to 200, '
+            "for example /talk speed 150."
+        )
+    percent = speed.clamp(asked)
+    speed.save(percent)
+    note = ""
+    if asked > speed.MAX_PERCENT:
+        note = " (the fastest Microsoft's voice goes)"
+    elif asked < speed.MIN_PERCENT:
+        note = " (the slowest Microsoft's voice goes)"
+    return f"⏩ Speed set to {percent}%{note}. It applies from the next reply."
+
+
+def _repeat(session_id: str) -> str:
+    """/talk again: speak the session's last spoken text once more, at the current speed."""
+    text = switch.last_speech(session_id)
+    if not text:
+        return "\U0001F501 Nothing to repeat yet."
+    control.start_speaking(text, session_id)
+    return "\U0001F501 Repeating the last reply."
+
+
 def handle_toggle(payload: dict, argument: str | None = None) -> dict:
-    """/talk toggles; /talk <mode> turns on in (or switches to) that mode. argument is the text after
-    /talk from a raw prompt; when None it comes from UserPromptExpansion's command_args."""
+    """/talk toggles; /talk <mode> turns on in (or switches to) that mode; /talk again and /talk speed
+    are handled without changing whether talk is on. argument is the text after /talk from a raw
+    prompt; when None it comes from UserPromptExpansion's command_args."""
     session_id = payload.get("session_id") or ""
-    word = _first_word(payload.get("command_args") if argument is None else argument)
+    text = payload.get("command_args") if argument is None else argument
+    words = text.split() if isinstance(text, str) else []
+    word = words[0].lower() if words else ""
+    if word == "speed":
+        return _block(_speed_command(words[1] if len(words) > 1 else ""))
+    if word in ("again", "repeat"):
+        return _block(_repeat(session_id))
     if word and word not in MODES:
         return _block(unknown_mode_message(word))
     if not switch.is_on(session_id) and not tts_available():
@@ -129,6 +164,7 @@ def handle_stop(payload: dict) -> None:
         return None
     cfg = load_config()
     speech, used = _speech_for(reply, _session_mode(session_id, cfg), cfg, session_id)
+    switch.save_last_speech(session_id, speech)  # for /talk again
     pid = control.start_speaking(speech, session_id)
     get_logger().info("session %s: speaking %d words (%s)", session_id[:8], len(speech.split()), used)
     if WAIT_FOR_SPEAKER:
@@ -140,6 +176,7 @@ def handle_stop(payload: dict) -> None:
 def handle_session_end(payload: dict) -> None:
     session_id = payload.get("session_id") or ""
     switch.turn_off(session_id)
+    switch.forget_last_speech(session_id)
     if session_id:
         control.stop_speaking(session_id=session_id)
     return None

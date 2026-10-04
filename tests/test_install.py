@@ -90,5 +90,5 @@ def test_command_points_at_this_installs_log(tmp_path, talk_home):
 def test_command_offers_the_modes():
     frontmatter = install.command_md().split("---")[1]
     # quoted: the description contains ": ", which strict YAML rejects in a plain value
-    assert 'argument-hint: "[gist|full|summary]"' in frontmatter
-    assert 'description: "Turn reading replies aloud on or off, or pick a mode: gist, full or summary"' in frontmatter
+    assert 'argument-hint: "[gist|full|summary|again|speed 50-200]"' in frontmatter
+    assert 'description: "Talk mode: on/off, a mode (gist, full, summary), again (repeat the last reply) or speed 50-200"' in frontmatter

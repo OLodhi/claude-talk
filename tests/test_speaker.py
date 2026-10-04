@@ -288,3 +288,12 @@ def test_sweep_removes_only_old_leftovers():
     assert not old_dir.exists()
     assert not old_job.exists()
     assert fresh_dir.exists()
+
+
+def test_saved_speed_sets_the_voice_rate():
+    from talk import speed
+    from talk.config import Config
+
+    assert speaker._rate(Config(rate="+10%")) == "+10%"  # nothing saved: config.json's rate
+    speed.save(150)
+    assert speaker._rate(Config(rate="+10%")) == "+50%"

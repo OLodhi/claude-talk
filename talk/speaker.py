@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
 
-from talk import control, paths
-from talk.config import load_config
+from talk import control, paths, speed
+from talk.config import Config, load_config
 from talk.log import get_logger
 from talk.speakable import speech_chunks
 
@@ -173,12 +173,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _rate(cfg: Config) -> str:
+    """The voice rate: the speed saved with /talk speed, else config.json's rate."""
+    saved = speed.load()
+    return speed.to_rate(saved) if saved is not None else cfg.rate
+
+
 def _speak_job(text: str, token: str) -> str:
     from talk import playback, tts
     from talk.keys import KeyWatcher
 
     tts.preload()  # keep the slow edge_tts import out of the 5 s first-audio clock
     cfg = load_config()
+    rate = _rate(cfg)
     keys = KeyWatcher()
     keys.prime()
 
@@ -189,7 +196,7 @@ def _speak_job(text: str, token: str) -> str:
     with tempfile.TemporaryDirectory(prefix="speak-", dir=paths.state_dir(), ignore_cleanup_errors=True) as tmp:
         work_dir = Path(tmp)
         deps = Deps(
-            synthesize=lambda chunk, out: tts.synthesize(chunk, cfg.voice, cfg.rate, out),
+            synthesize=lambda chunk, out: tts.synthesize(chunk, cfg.voice, rate, out),
             open_player=playback.Mp3Player,
             start_fallback=(lambda rest: tts.start_windows_voice(rest, work_dir))
             if cfg.fallback_to_windows_voice else None,

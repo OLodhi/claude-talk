@@ -20,6 +20,14 @@ Makes Claude Code read its replies aloud, so you can have a spoken conversation 
 
 `/talk` on its own uses the `mode` setting (default `gist`). Typing a mode while talk is on switches mode without turning it off. In summary mode, if Claude forgets the 🔊 line, the gist is read instead.
 
+### Speed and repeat
+
+| Type | What it does |
+|---|---|
+| `/talk speed 150` | Speaking speed as a percentage of normal: `100` is normal, `200` is twice as fast (the fastest the voice goes), `50` is half speed. Remembered across all sessions. |
+| `/talk speed` | Tells you the current speed |
+| `/talk again` (or `/talk repeat`) | Reads Claude's last spoken reply once more, at the current speed |
+
 ## Settings
 
 Edit `config.json`:
@@ -28,7 +36,7 @@ Edit `config.json`:
 |---|---|---|
 | `voice` | `en-GB-SoniaNeural` | Any Microsoft neural voice. List them with `.venv\Scripts\edge-tts.exe --list-voices` |
 | `mode` | `gist` | Mode used by `/talk` on its own: `gist`, `full` or `summary` |
-| `rate` | `+0%` | Speaking speed, e.g. `+15%` or `-10%` |
+| `rate` | `+0%` | Speaking speed, e.g. `+15%` or `-10%`. Once you use `/talk speed`, that takes over. |
 | `full_read_max_words` | `120` | Replies up to this many spoken words are read in full |
 | `gist_max_words` | `60` | Longer replies: at most this many words of the opening paragraph |
 | `closing_max_words` | `40` | Longer replies: at most this many words of the closing paragraph, read after "The remainder of details are on screen." |

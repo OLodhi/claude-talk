@@ -56,7 +56,7 @@ Messages, all shown as the `/talk` block reason:
   - full: "Claude will read whole replies aloud, except code"
   - summary: "Claude will read a short spoken summary of each reply"
 - Off: `🔇 Talk mode off.` (unchanged)
-- Unknown word: `⚠️ Unknown talk mode "<word>". Use /talk, /talk gist, /talk full or /talk summary.`
+- Unknown word: `⚠️ Unknown talk option "<word>". Use /talk, /talk gist, /talk full, /talk summary, /talk again or /talk speed 50-200.` (wording extended when speed and repeat were added)
 
 `/talk <mode>` gives the same message whether talk was off or already on. So if one command reaches both hooks, the repeat changes nothing and shows the same text. `/talk` on its own keeps its existing `prompt_id` de-duplication (main spec §7.1). The health check (`edge-tts` importable) runs whenever a command would turn talk on.
 
