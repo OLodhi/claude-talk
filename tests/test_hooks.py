@@ -82,8 +82,8 @@ def test_stop_speaks_the_cleaned_reply(calls):
 
 def test_stop_handles_non_ascii_reply(calls):
     switch.turn_on("s1")
-    run("stop", {"session_id": "s1", "last_assistant_message": "It costs £5 — that's fine."})
-    assert calls["start"] == [("It costs £5 — that's fine.", "s1")]
+    run("stop", {"session_id": "s1", "last_assistant_message": "It costs £5 — that’s fine."})
+    assert calls["start"] == [("It costs £5 — that’s fine.", "s1")]
 
 
 def test_stop_in_silent_session_is_quiet(calls):
@@ -124,3 +124,18 @@ def test_bad_input_never_fails(capfd, talk_home):
         assert run(event, b"") is None
     assert capfd.readouterr().err == ""
     assert "failed" in (talk_home / "logs" / "talk.log").read_text(encoding="utf-8")
+
+
+def test_logging_failure_never_escapes(monkeypatch, capfd):
+    """Verify that a logging failure in exception handler never escapes the hook."""
+    class BrokenLogger:
+        def exception(self, *args, **kwargs):
+            raise OSError("log write failed")
+        def info(self, *args, **kwargs):
+            raise OSError("log write failed")
+
+    monkeypatch.setattr(hooks, "get_logger", lambda: BrokenLogger())
+    # Pass invalid JSON to trigger the exception handler
+    result = hooks.main(["toggle"], stdin=io.BytesIO(b"not json"), stdout=io.BytesIO())
+    assert result == 0
+    assert capfd.readouterr().err == ""

@@ -109,7 +109,10 @@ def main(argv: list[str] | None = None, stdin: BinaryIO | None = None, stdout: B
             stdout.write(json.dumps(result).encode("ascii"))
             stdout.flush()
     except Exception:
-        get_logger().exception("hook %s failed", argv[:1])
+        try:
+            get_logger().exception("hook %s failed", argv[:1])
+        except Exception:
+            pass
     return 0
 
 
