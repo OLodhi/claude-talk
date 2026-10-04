@@ -9,12 +9,17 @@ import shutil
 import sys
 from pathlib import Path
 
+from talk import paths
+
 HOOK_MODULE = "talk.hooks"
-COMMAND_MD = """---
+
+
+def command_md() -> str:
+    return f"""---
 description: Turn Claude reading its replies aloud on or off for this session
 disable-model-invocation: true
 ---
-Reply with exactly this sentence and nothing else: "Talk mode isn't set up correctly. Check C:\\Users\\olodh\\Projects\\claude-talk\\logs\\talk.log."
+Reply with exactly this sentence and nothing else: "Talk mode isn't set up correctly. Check {paths.root() / 'logs' / 'talk.log'}."
 """
 
 
@@ -80,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         new_settings = merge_settings(settings, sys.executable)
         command_path.parent.mkdir(parents=True, exist_ok=True)
-        command_path.write_text(COMMAND_MD, encoding="utf-8")
+        command_path.write_text(command_md(), encoding="utf-8")
         print(f"Claude Talk installed: hooks use {sys.executable}; /talk added; dictation set to tap mode.")
 
     claude_dir.mkdir(parents=True, exist_ok=True)

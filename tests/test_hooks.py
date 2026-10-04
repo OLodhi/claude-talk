@@ -51,9 +51,11 @@ def test_user_prompt_field_name_also_works():
     assert run("prompt", {"session_id": "s1", "user_prompt": "/talk"}) == block(hooks.TALK_ON)
 
 
-def test_toggle_refuses_when_voice_package_is_missing(monkeypatch):
+def test_toggle_refuses_when_voice_package_is_missing(monkeypatch, talk_home):
     monkeypatch.setattr(hooks, "tts_available", lambda: False)
-    assert run("toggle", {"session_id": "s1"}) == block(hooks.SETUP_BROKEN)
+    result = run("toggle", {"session_id": "s1"})
+    assert result["decision"] == "block"
+    assert str(talk_home / "setup.cmd") in result["reason"]  # the repair step names this install's folder
     assert not switch.is_on("s1")
 
 

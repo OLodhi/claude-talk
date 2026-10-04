@@ -8,7 +8,7 @@ import sys
 import time
 from typing import BinaryIO
 
-from talk import control, procs, switch
+from talk import control, paths, procs, switch
 from talk.config import load_config
 from talk.log import get_logger
 from talk.speakable import to_speech
@@ -20,16 +20,19 @@ WAIT_FOR_SPEAKER = False
 
 TALK_ON = "🔊 Talk mode on: Claude will read replies aloud. Tap Space or Esc to stop it talking."
 TALK_OFF = "🔇 Talk mode off."
-SETUP_BROKEN = (
-    "⚠️ Talk mode couldn't start because the voice package isn't installed. Run: "
-    r"C:\Users\olodh\Projects\claude-talk\.venv\Scripts\python.exe -m pip install -e C:\Users\olodh\Projects\claude-talk"
-)
 NUDGE = (
     "Talk mode is on: your reply will be read aloud to the user. Open with one or two plain sentences "
     "giving the gist, written the way you'd say it out loud. If the user is just chatting, keep the whole "
     "reply short and conversational. For technical work, put the details (code, file paths, lists) after "
     "the gist as usual; they stay on screen and won't be read out."
 )
+
+
+def setup_broken() -> str:
+    return (
+        "⚠️ Talk mode couldn't start because the voice package isn't installed. "
+        f"Run {paths.root() / 'setup.cmd'} to repair it."
+    )
 
 
 def tts_available() -> bool:
@@ -43,7 +46,7 @@ def _block(reason: str) -> dict:
 def handle_toggle(payload: dict) -> dict:
     session_id = payload.get("session_id") or ""
     if not switch.is_on(session_id) and not tts_available():
-        return _block(SETUP_BROKEN)
+        return _block(setup_broken())
     if switch.toggle(session_id, payload.get("prompt_id")):
         switch.cleanup_stale()  # the marker just set is brand new, so it is never swept
         return _block(TALK_ON)

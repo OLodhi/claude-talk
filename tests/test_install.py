@@ -54,7 +54,7 @@ def test_install_and_uninstall_on_disk(tmp_path):
     assert install.main(["--claude-dir", str(tmp_path)]) == 0
     settings = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert "UserPromptExpansion" in settings["hooks"]
-    assert (tmp_path / "commands" / "talk.md").read_text(encoding="utf-8") == install.COMMAND_MD
+    assert (tmp_path / "commands" / "talk.md").read_text(encoding="utf-8") == install.command_md()
     assert json.loads((tmp_path / "settings.json.bak-claude-talk").read_text(encoding="utf-8")) == EXISTING
 
     assert install.main(["--claude-dir", str(tmp_path), "--uninstall"]) == 0
@@ -77,5 +77,11 @@ def test_reinstall_replaces_old_style_entries_without_p_flag():
 
 
 def test_command_is_not_invocable_by_the_model():
-    frontmatter = install.COMMAND_MD.split("---")[1]
+    frontmatter = install.command_md().split("---")[1]
     assert "disable-model-invocation: true" in frontmatter
+
+
+def test_command_points_at_this_installs_log(tmp_path, talk_home):
+    assert install.main(["--claude-dir", str(tmp_path / "claude")]) == 0
+    text = (tmp_path / "claude" / "commands" / "talk.md").read_text(encoding="utf-8")
+    assert str(talk_home / "logs" / "talk.log") in text

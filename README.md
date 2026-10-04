@@ -23,16 +23,24 @@ Edit `config.json`:
 | `closing_max_words` | `40` | Longer replies: at most this many words of the closing paragraph, read after "The remainder of details are on screen." |
 | `fallback_to_windows_voice` | `true` | Use the built-in Windows voice if the online voice fails |
 
-## Setup (once)
+## Set up on a PC
+
+Works on Windows with Claude Code installed. You need Git and an internet connection; if Python 3.13 is missing, setup installs it with winget.
 
 ```powershell
-cd C:\Users\olodh\Projects\claude-talk
-py -3.13 -m venv .venv
-.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.venv\Scripts\python.exe -m talk.install
+cd $HOME\Projects
+git clone https://github.com/OLodhi/claude-talk.git
+cd claude-talk
+.\setup.cmd
 ```
 
-Then start a new Claude Code session. To remove it: `.venv\Scripts\python.exe -m talk.install --uninstall`.
+(Or double-click `setup.cmd` in the folder.) Then start a new Claude Code session and type `/talk`.
+
+Setup adds the hooks to `~\.claude\settings.json` (backing it up to `settings.json.bak-claude-talk` first), adds the `/talk` command and switches dictation to tap mode. The hooks point at this folder, so leave it where it is; if you move it, delete its `.venv` folder and run `setup.cmd` again.
+
+**Update:** `git pull`, then run `setup.cmd` again.
+
+**Remove:** `.venv\Scripts\python.exe -m talk.install --uninstall`
 
 ## Good to know
 
@@ -40,4 +48,4 @@ Then start a new Claude Code session. To remove it: `.venv\Scripts\python.exe -m
 - Space and Esc stop Claude talking anywhere in Windows while it speaks, including in other apps.
 - Problems? Check `logs\talk.log`. Test the voice on its own with `.venv\Scripts\python.exe scripts\say.py "Hello"`.
 - `/clear` starts a fresh session, so talk mode switches off; type `/talk` again.
-- Tests: `.venv\Scripts\python.exe -m pytest` (add `$env:TALK_NETWORK_TESTS="1"` to include the online voice).
+- Tests: install the test tools once with `.venv\Scripts\python.exe -m pip install -e ".[dev]"`, then run `.venv\Scripts\python.exe -m pytest`. Add `$env:TALK_NETWORK_TESTS="1"` to include the online tests (the voice service and a full run of `setup.cmd`).
