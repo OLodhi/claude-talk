@@ -1,8 +1,12 @@
-"""Per-session talk mode, stored as one marker file per session in state/sessions/."""
+"""Per-session talk mode, stored as one marker file per session in state/sessions/.
+
+A marker's existence means talk is on. Its contents are the mode chosen with /talk <mode>, or empty
+to follow the default mode in config.json."""
 import time
 from pathlib import Path
 
 from talk import paths
+from talk.config import MODES
 
 STALE_AFTER_DAYS = 7
 
@@ -21,8 +25,22 @@ def is_on(session_id: str) -> bool:
         return False
 
 
-def turn_on(session_id: str) -> None:
-    _marker(session_id).touch()
+def mode(session_id: str) -> str | None:
+    """The mode chosen for this session, or None to use the default."""
+    try:
+        word = _marker(session_id).read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return None
+    return word if word in MODES else None
+
+
+def turn_on(session_id: str, mode: str | None = None) -> None:
+    """Switch talk on. A given mode is stored; otherwise the marker keeps its contents (touch refreshes its age)."""
+    marker = _marker(session_id)
+    if mode is None:
+        marker.touch()
+    else:
+        marker.write_text(mode, encoding="utf-8")
 
 
 def turn_off(session_id: str) -> None:

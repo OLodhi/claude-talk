@@ -51,3 +51,40 @@ def test_cleanup_removes_only_old_markers():
     assert switch.cleanup_stale() == 1
     assert switch.is_on("old") is False
     assert switch.is_on("fresh") is True
+
+
+def test_mode_is_stored_per_session():
+    switch.turn_on("s1", "summary")
+    switch.turn_on("s2")
+    assert switch.mode("s1") == "summary"
+    assert switch.mode("s2") is None  # plain /talk: follow the default
+
+
+def test_refreshing_the_marker_keeps_the_mode():
+    switch.turn_on("s1", "full")
+    switch.turn_on("s1")
+    assert switch.mode("s1") == "full"
+    assert switch.is_on("s1") is True
+
+
+def test_turning_off_forgets_the_mode():
+    switch.turn_on("s1", "full")
+    switch.turn_off("s1")
+    switch.turn_on("s1")
+    assert switch.mode("s1") is None
+
+
+def test_marker_from_before_modes_existed_follows_the_default():
+    (paths.sessions_dir() / "s1").touch()  # empty marker, as written by the previous version
+    assert switch.is_on("s1") is True
+    assert switch.mode("s1") is None
+
+
+def test_unknown_word_in_a_marker_means_default():
+    (paths.sessions_dir() / "s1").write_text("loud", encoding="utf-8")
+    assert switch.mode("s1") is None
+
+
+def test_mode_of_missing_or_bad_sessions_is_none():
+    assert switch.mode("nobody") is None
+    assert switch.mode("") is None
