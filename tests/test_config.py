@@ -47,3 +47,20 @@ def test_wrong_types_fall_back_per_key(talk_home):
 def test_config_with_bom_loads(talk_home):
     write_config(talk_home, json.dumps({"rate": "+10%"}), encoding="utf-8-sig")
     assert load_config().rate == "+10%"
+
+
+def test_mode_defaults_to_gist():
+    assert Config().mode == "gist"
+
+
+def test_mode_can_be_chosen(talk_home):
+    write_config(talk_home, json.dumps({"mode": "summary"}))
+    assert load_config().mode == "summary"
+
+
+def test_unknown_mode_falls_back_to_gist_and_is_logged(talk_home):
+    write_config(talk_home, json.dumps({"mode": "loud", "voice": "en-GB-RyanNeural"}))
+    cfg = load_config()
+    assert cfg.mode == "gist"
+    assert cfg.voice == "en-GB-RyanNeural"  # other keys still apply
+    assert "mode='loud'" in (talk_home / "logs" / "talk.log").read_text(encoding="utf-8")

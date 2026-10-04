@@ -5,6 +5,8 @@ from dataclasses import dataclass, fields, replace
 from talk import paths
 from talk.log import get_logger
 
+MODES = ("gist", "full", "summary")
+
 
 @dataclass(frozen=True)
 class Config:
@@ -14,6 +16,7 @@ class Config:
     gist_max_words: int = 60
     closing_max_words: int = 40
     fallback_to_windows_voice: bool = True
+    mode: str = "gist"
 
 
 def load_config() -> Config:
@@ -35,10 +38,12 @@ def load_config() -> Config:
         if field.name not in data:
             continue
         value, default = data[field.name], getattr(defaults, field.name)
-        if type(value) is type(default):
-            values[field.name] = value
-        else:
+        if type(value) is not type(default):
             get_logger().warning(
                 "Ignoring config.json %s=%r: expected %s", field.name, value, type(default).__name__
             )
+        elif field.name == "mode" and value not in MODES:
+            get_logger().warning("Ignoring config.json mode=%r: expected one of %s", value, ", ".join(MODES))
+        else:
+            values[field.name] = value
     return replace(defaults, **values)

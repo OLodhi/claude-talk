@@ -4,5 +4,6 @@
   "full_read_max_words": 120,
   "gist_max_words": 60,
   "closing_max_words": 40,
-  "fallback_to_windows_voice": true
+  "fallback_to_windows_voice": true,
+  "mode": "gist"
 }
