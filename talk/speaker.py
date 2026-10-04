@@ -146,6 +146,7 @@ def _speak_job(text: str, token: str) -> str:
     from talk import playback, tts
     from talk.keys import KeyWatcher
 
+    tts.preload()  # keep the slow edge_tts import out of the 5 s first-audio clock
     cfg = load_config()
     keys = KeyWatcher()
     keys.prime()

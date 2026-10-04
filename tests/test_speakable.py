@@ -50,6 +50,12 @@ CASES = [
      " ".join([TEN_WORDS] * 6) + " " + REST_ON_SCREEN),
     ("huge first sentence cut", HUGE_SENTENCE + "\n\n" + LONG_LIST,
      " ".join(["word"] * 60) + "… " + REST_ON_SCREEN),
+    ("bold label then gist", "**Summary**\n\nThe build passes now. I fixed three things.\n\n" + LONG_LIST,
+     "The build passes now. I fixed three things. " + REST_ON_SCREEN),
+    ("colon intro joins its list", "Here's what I changed:\n\n" + LONG_LIST,
+     "Here's what I changed: "
+     + " ".join(f"Updated module number {i} so that it uses the new helper consistently." for i in range(4))
+     + " " + REST_ON_SCREEN),
 ]
 
 

@@ -12,13 +12,14 @@ from pathlib import Path
 HOOK_MODULE = "talk.hooks"
 COMMAND_MD = """---
 description: Turn Claude reading its replies aloud on or off for this session
+disable-model-invocation: true
 ---
 Reply with exactly this sentence and nothing else: "Talk mode isn't set up correctly. Check C:\\Users\\olodh\\Projects\\claude-talk\\logs\\talk.log."
 """
 
 
 def _hook(python: str, event_arg: str, **extra) -> dict:
-    return {"type": "command", "command": python, "args": ["-m", HOOK_MODULE, event_arg], **extra}
+    return {"type": "command", "command": python, "args": ["-P", "-m", HOOK_MODULE, event_arg], **extra}
 
 
 def _is_ours(group) -> bool:

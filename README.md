@@ -38,4 +38,5 @@ Then start a new Claude Code session. To remove it: `.venv\Scripts\python.exe -m
 - Spoken text (never code blocks) is sent to Microsoft's online voice service. This is an unofficial use of that service, so if it stops working, the Windows voice takes over.
 - Space and Esc stop Claude talking anywhere in Windows while it speaks, including in other apps.
 - Problems? Check `logs\talk.log`. Test the voice on its own with `.venv\Scripts\python.exe scripts\say.py "Hello"`.
+- `/clear` starts a fresh session, so talk mode switches off; type `/talk` again.
 - Tests: `.venv\Scripts\python.exe -m pytest` (add `$env:TALK_NETWORK_TESTS="1"` to include the online voice).

@@ -12,7 +12,7 @@ EXISTING = {
 
 
 def ours(event_arg, **extra):
-    return {"type": "command", "command": PY, "args": ["-m", "talk.hooks", event_arg], **extra}
+    return {"type": "command", "command": PY, "args": ["-P", "-m", "talk.hooks", event_arg], **extra}
 
 
 def test_merge_adds_every_hook_and_tap_mode():
@@ -66,3 +66,16 @@ def test_install_and_uninstall_on_disk(tmp_path):
 def test_install_without_existing_settings(tmp_path):
     assert install.main(["--claude-dir", str(tmp_path)]) == 0
     assert "hooks" in json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+
+
+def test_reinstall_replaces_old_style_entries_without_p_flag():
+    old = {"hooks": {"UserPromptSubmit": [
+        {"hooks": [{"type": "command", "command": PY, "args": ["-m", "talk.hooks", "prompt"], "timeout": 10}]}
+    ]}}
+    merged = install.merge_settings(old, PY)
+    assert merged["hooks"]["UserPromptSubmit"] == [{"hooks": [ours("prompt", timeout=10)]}]
+
+
+def test_command_is_not_invocable_by_the_model():
+    frontmatter = install.COMMAND_MD.split("---")[1]
+    assert "disable-model-invocation: true" in frontmatter

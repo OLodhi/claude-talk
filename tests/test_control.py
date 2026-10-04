@@ -108,8 +108,8 @@ def test_should_stop_when_asked_or_superseded():
 def test_speaker_command_uses_pythonw_from_this_environment(tmp_path):
     command = control.speaker_command(tmp_path / "job.json")
     assert command[0].lower().endswith(("pythonw.exe", "python.exe"))
-    assert command[1:3] == ["-m", "talk.speaker"]
-    assert command[3] == str(tmp_path / "job.json")
+    assert command[1:4] == ["-P", "-m", "talk.speaker"]
+    assert command[4] == str(tmp_path / "job.json")
 
 
 def test_reused_pid_is_not_killed():

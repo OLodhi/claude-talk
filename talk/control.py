@@ -88,7 +88,7 @@ def speaker_command(job_path: Path) -> list[str]:
     """pythonw.exe (no console window) from this same environment, running talk.speaker."""
     python = Path(sys.executable)
     pythonw = python.with_name("pythonw.exe")
-    return [str(pythonw if pythonw.exists() else python), "-m", "talk.speaker", str(job_path)]
+    return [str(pythonw if pythonw.exists() else python), "-P", "-m", "talk.speaker", str(job_path)]
 
 
 def start_speaking(

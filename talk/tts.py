@@ -10,6 +10,14 @@ class TtsError(Exception):
     pass
 
 
+def preload() -> None:
+    """Import edge_tts up front. A missing package is left for synthesize to fail on, so the fallback voice still runs."""
+    try:
+        import edge_tts  # noqa: F401
+    except ImportError:
+        pass
+
+
 def synthesize(text: str, voice: str, rate: str, out_path: Path) -> None:
     """Write MP3 audio of text to out_path using edge-tts. Raises on any failure."""
     import edge_tts

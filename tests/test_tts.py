@@ -6,6 +6,13 @@ import pytest
 from talk import tts
 
 
+def test_preload_imports_edge_tts_without_raising():
+    import sys
+
+    tts.preload()
+    assert "edge_tts" in sys.modules
+
+
 def test_windows_voice_command_reads_the_text_file_as_utf8():
     command = tts.windows_voice_command(Path(r"C:\work\fallback.txt"))
     assert command[:4] == ["powershell", "-NoProfile", "-NonInteractive", "-Command"]

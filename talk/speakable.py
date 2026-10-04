@@ -28,7 +28,7 @@ _BOLD = re.compile(r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1")
 _ITALIC_STAR = re.compile(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])")
 _ITALIC_UNDERSCORE = re.compile(r"(?<![\w_])_(?=\S)(.+?)(?<=\S)_(?![\w_])")
 _STRIKE = re.compile(r"~~(.+?)~~")
-_EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍]")
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?…])\s+")
 
 
@@ -39,7 +39,22 @@ def to_speech(markdown: str, full_read_max_words: int = 120, gist_max_words: int
         return NOTHING_TO_SAY
     if sum(_word_count(p) for p in paragraphs) <= full_read_max_words:
         return " ".join(paragraphs)
-    return f"{_trim(paragraphs[0], gist_max_words)} {REST_ON_SCREEN}"
+    return f"{_trim(_gist_paragraph(paragraphs), gist_max_words)} {REST_ON_SCREEN}"
+
+
+def _gist_paragraph(paragraphs: list[str]) -> str:
+    """The opening paragraph, skipping short label paragraphs and joining a "...:" intro to what follows."""
+    index = 0
+    while (
+        index + 1 < len(paragraphs)
+        and _word_count(paragraphs[index]) < 4
+        and not paragraphs[index].endswith(":")
+    ):
+        index += 1
+    chosen = paragraphs[index]
+    if chosen.endswith(":") and index + 1 < len(paragraphs):
+        chosen = f"{chosen} {paragraphs[index + 1]}"
+    return chosen
 
 
 def split_sentences(text: str) -> list[str]:
