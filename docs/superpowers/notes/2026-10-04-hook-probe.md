@@ -27,14 +27,17 @@ Q4. Does the Stop payload include last_assistant_message? → Yes (`"pong"`):
 
 Q5. Did the detached child survive (child_survived.txt exists)? Spawned with breakaway or not? → Yes. `Test-Path .\child_survived.txt` printed `True` after 8 s, and the log recorded `{"event": "Stop-child", "spawned": "breakaway"}`. This was an async Stop hook in `-p` mode, so the detached child outlived both the hook and the CLI.
 
-Q6. Did SessionEnd fire in -p mode, and with which fields? → Yes. It fired in probes A and B (the blocked-command sessions); but no SessionEnd line was logged for probe C's normal (non-blocked) session, even after the 8 s wait. Cause not determined (possibly the CLI exits before the hook runs after a normal turn); do not rely on SessionEnd in `-p` mode. Its fields:
+Q6. Did SessionEnd fire in -p mode, and with which fields? → Only for the blocked-command sessions (A, B; reason "other"); not after the normal turn (C). No SessionEnd line was logged for probe C's normal (non-blocked) session, even after the 8 s wait. Cause not determined (possibly the CLI exits before the hook runs after a normal turn); do not rely on SessionEnd in `-p` mode. Its fields:
 ```json
 {"session_id":"0ffeaa8c-...","transcript_path":"C:\\Users\\olodh\\.claude\\projects\\...\\0ffeaa8c-....jsonl","cwd":"C:\\Users\\olodh\\Projects\\claude-talk\\probe","prompt_id":"a0b35348-9417-49db-beb0-3a53994b37a4","hook_event_name":"SessionEnd","reason":"other"}
 ```
 
 Decisions:
-- PROMPT_FIELDS = ("prompt",)  (the field is `prompt`; no extra name needs adding. `user_prompt` can stay as a harmless fallback.)
-- WAIT_FOR_SPEAKER = False  (Q5 passed even in `-p` mode, so no re-check is forced; Task 10 still re-checks `/talk` routing and detachment in an interactive session.)
+- PROMPT_FIELDS = ("prompt", "user_prompt")  (the observed field is `prompt`; `user_prompt` is kept as a harmless fallback, as the plan specifies.)
+- WAIT_FOR_SPEAKER = False  (the probe was a single async Stop hook spawning one breakaway child in `-p` mode, which is not interactive-mode evidence. Task 10 must still re-check speaker survival in an interactive session.)
+
+Open questions for Task 10:
+- Interactive mode: does UserPromptSubmit see a raw /talk, and if both hooks fire for one /talk, does prompt_id de-duplicate them?
 
 Decision-rule check:
 - Probe A and B both blocked `/talk` (neither printed `PROBE-EXPANDED`), so the "stop and report" rule does not trigger. UserPromptExpansion is the blocking hook that works; UserPromptSubmit blocking for `/talk` is unproven in `-p` mode.
