@@ -70,7 +70,7 @@ Claude Talk therefore adds **only the missing half**: Claude speaking its replie
  session closes ───────► │ 4. Cleanup (SessionEnd)  │──► clears marker, stops its speech
                          └──────────────────────────┘
 
- Speaker process: reply → speakable text → edge-tts audio (all chunks requested at once) → playback
+ Speaker process: reply → speakable text → edge-tts audio (fetched a few chunks ahead) → playback
                   watches Space / Esc / stop requests → stops instantly
                   edge-tts unavailable → Windows built-in voice
 ```
@@ -168,7 +168,7 @@ The path rule is applied before the inline-code length rule, so `` `src/auth/ses
 
 1. **Registered as current speaker.** Before launching it, `control.start_speaking` stops any registered speaker, then records the new one in `state/speaker.json` (`pid`, a random `token`, `session_id`, start time). So only one voice plays at a time.
 2. **Split into chunks and synthesise** with `edge-tts` (voice and rate from config). The first sentence is a chunk of its own so speech starts fast. The remaining sentences are grouped into chunks of up to 250 characters.
-   - **All chunks are requested at once** when speaking starts, so later chunks are ready by the time earlier ones finish playing. Chunks play in order.
+   - **Fetched a few chunks ahead:** up to three chunks (`LOOKAHEAD`) are being fetched or waiting to play at any time, so later chunks are ready by the time earlier ones finish playing. Chunks play in order. A chunk plays for up to about 15 s and usually arrives in about 0.4 s, so three is plenty, and a very long reply (full mode) never opens dozens of connections at once, or fetches text you have already cut off.
    - **Backup request:** a chunk still missing after 1 second (`BACKUP_AFTER`) gets a second identical request. The first successful result is played, and a failed backup never replaces a slow success. Measurements showed the service usually answers in about 0.4 s but stalls for 2 to 5 s on about 1 request in 4, independently per request. Requesting chunks one after another let a stalled second chunk leave an audible pause after the first sentence.
 3. **Play** each MP3 chunk with Windows' built-in media control interface (`winmm` via `ctypes`), so no extra audio libraries are needed.
 4. **Watch for stop**, about every 50 ms during playback:
@@ -226,7 +226,7 @@ Setup is safe to run again, so **updating is `git pull` followed by `setup.cmd`*
 - `switch`: on/off per session, isolation between sessions, stale-marker cleanup.
 - `hooks`: each entry point given sample hook JSON. It must produce the right output, exit 0 and never raise, including on malformed input.
 - `control`: start/stop with a fake speaker process. A second start replaces the first, and stop force-kills a speaker that doesn't respond.
-- `speaker`: fake synthesis and playback. Chunks play in order, failures and timeouts fall back with the remaining text, stops are obeyed, every chunk is requested straight away, a slow request gets a backup, a fast one doesn't, and a failed backup never beats a slow success.
+- `speaker`: fake synthesis and playback. Chunks play in order, failures and timeouts fall back with the remaining text, stops are obeyed, the next chunk is requested before the first is ready, a long reply is fetched only three chunks ahead (also when stopped early), a slow request gets a backup, a fast one doesn't, and a failed backup never beats a slow success.
 - `install`: merging is idempotent and keeps other settings and hooks, uninstall removes only Claude Talk's, and the `/talk` file names the install folder.
 - **Online tests** (only with `TALK_NETWORK_TESTS=1`): a real `edge-tts` synthesis, and a full `setup.cmd` run on a copy of the project against a scratch Claude Code folder. That run is done twice to show re-running is safe.
 
@@ -246,7 +246,7 @@ Setup is safe to run again, so **updating is `git pull` followed by `setup.cmd`*
 | Claude ignores the nudge and writes long replies | The length rule caps what's spoken regardless. |
 | Space typed in another app silences Claude | Accepted trade-off. |
 | Hook command quirks on Windows (shell, quoting) | Exec-form hooks with absolute paths, so no shell is involved. Verified with a real session in the manual check. |
-| The online voice stalls for seconds on some requests | All chunks requested at once, plus a backup request after 1 s (§7.5). The Windows voice takes over if the first audio needs more than 5 s. |
+| The online voice stalls for seconds on some requests | Chunks fetched three ahead, plus a backup request after 1 s (§7.5). The Windows voice takes over if the first audio needs more than 5 s. |
 | Setup on a PC without Python | `setup.ps1` installs Python 3.13 with winget. This path hasn't been run yet, because the test PC already had Python. |
 
 ## 13. Changes since the first build
@@ -256,4 +256,4 @@ All on 2026-10-04:
 - **Closing paragraph** (`e2141d3`): long replies read the gist, then "The remainder of details are on screen." and the closing paragraph, after feedback from the interactive check.
 - **Portable install** (`f76f143`): `setup.cmd`/`setup.ps1`, no hardcoded folder paths, and the repo moved to private GitHub (`OLodhi/claude-talk`) so another PC can install and update it.
 - **No pause after the first sentence** (`be70eed`): all chunks are requested at once, and slow requests get a backup (§7.5).
-- **Speech modes**: `/talk gist|full|summary`, a `mode` default in `config.json`, and a 🔊 summary line in summary mode (`2026-10-04-talk-modes-design.md`).
+- **Speech modes**: `/talk gist|full|summary`, a `mode` default in `config.json`, and a 🔊 summary line in summary mode (`2026-10-04-talk-modes-design.md`). Because full mode can speak very long replies, the speaker now fetches at most three chunks ahead instead of all at once.

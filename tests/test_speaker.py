@@ -188,7 +188,7 @@ def test_slow_failure_and_failed_backup_falls_back(tmp_path):
     assert synth.calls == ["One.", "One."]
 
 
-def test_every_chunk_is_requested_straight_away(tmp_path):
+def test_the_next_chunk_is_requested_before_the_first_is_ready(tmp_path):
     two_requested = threading.Event()
 
     def synth(text, path):
@@ -202,6 +202,37 @@ def test_every_chunk_is_requested_straight_away(tmp_path):
     assert speak("One. Two.", deps, first_timeout=3.0, backup_after=10.0) == "finished"
     assert log == [("play", "chunk0.mp3"), ("close", "chunk0.mp3"), ("play", "chunk1.mp3"), ("close", "chunk1.mp3")]
     assert fallbacks == []
+
+
+def test_a_long_reply_is_fetched_a_few_chunks_ahead_not_all_at_once(tmp_path):
+    # 50 sentences of ~220 characters: each is a chunk of its own (chunks hold up to 250)
+    text = " ".join(f"Sentence {n} " + "word " * 40 + "ends here." for n in range(50))
+    active, peak, lock = 0, 0, threading.Lock()
+
+    def synth(text, path):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.01)
+        with lock:
+            active -= 1
+        path.write_bytes(b"mp3")
+
+    deps, log, fallbacks = make(tmp_path, synth=synth, player_polls=1)
+    assert speak(text, deps, backup_after=10.0) == "finished"
+    assert [name for action, name in log if action == "play"] == [f"chunk{i}.mp3" for i in range(50)]
+    assert peak <= speaker.LOOKAHEAD
+    assert fallbacks == []
+
+
+def test_stopping_early_leaves_later_chunks_unrequested(tmp_path):
+    text = " ".join(f"Sentence {n} " + "word " * 40 + "ends here." for n in range(20))
+    requested = []
+    deps, log, _ = make(tmp_path, synth=lambda text, path: (requested.append(text), path.write_bytes(b"mp3")))
+    deps.should_stop = lambda: bool(log)  # stop as soon as the first chunk starts playing
+    assert speak(text, deps) == "stopped"
+    assert len(requested) <= speaker.LOOKAHEAD
 
 
 def test_no_fallback_configured(tmp_path):

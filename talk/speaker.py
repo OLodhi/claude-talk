@@ -1,7 +1,7 @@
 """The speaker process: python -m talk.speaker <job.json>
 
-Started detached by control.start_speaking. Speaks one reply chunk by chunk (all chunks are requested
-at once, with backup requests for slow ones), and stops the moment Space/Esc is pressed, a stop is
+Started detached by control.start_speaking. Speaks one reply chunk by chunk (fetching up to LOOKAHEAD
+chunks ahead, with backup requests for slow ones), and stops the moment Space/Esc is pressed, a stop is
 requested, or a newer reply takes over."""
 import json
 import queue
@@ -24,6 +24,9 @@ NEXT_AUDIO_TIMEOUT = 15.0
 # The online voice answers in ~0.4 s but stalls 2-5 s on about 1 request in 4, independently per request,
 # so a chunk still missing after this long gets a second identical request and the first to arrive is used.
 BACKUP_AFTER = 1.0
+# Chunks being fetched or waiting to play at any time. A chunk plays for ~15 s and arrives in ~0.4 s,
+# so three is plenty, and a long reply (full mode) never opens dozens of connections at once.
+LOOKAHEAD = 3
 POLL_SECONDS = 0.05
 _STOPPED = object()
 SWEEP_AFTER_SECONDS = 3600
@@ -60,11 +63,18 @@ def speak(
     chunks = speech_chunks(text)
     cancel = threading.Event()
     results = [queue.Queue() for _ in chunks]
-    for index, chunk in enumerate(chunks):  # request every chunk now, so later ones are ready when needed
-        args = (chunk, f"chunk{index}", deps, backup_after, cancel, results[index])
-        threading.Thread(target=_fetch, args=args, daemon=True).start()
+    started = 0
+
+    def request_up_to(end: int) -> None:  # fetch ahead, so later chunks are ready when needed
+        nonlocal started
+        while started < min(end, len(chunks)):
+            args = (chunks[started], f"chunk{started}", deps, backup_after, cancel, results[started])
+            threading.Thread(target=_fetch, args=args, daemon=True).start()
+            started += 1
+
     try:
         for index in range(len(chunks)):
+            request_up_to(index + LOOKAHEAD)
             item = _wait_for(results[index], first_timeout if index == 0 else next_timeout, deps.should_stop)
             if item is _STOPPED:
                 return "stopped"
