@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 
 from talk import control, paths, speaker
@@ -127,6 +128,79 @@ def test_stop_while_waiting_for_first_audio(tmp_path):
     deps, log, fallbacks = make(tmp_path, synth=slow_synth, should_stop=lambda: True)
     assert speak("One.", deps) == "stopped"
     assert log == []
+    assert fallbacks == []
+
+
+class ScriptedSynth:
+    """Each call for a text runs its next scripted step: "ok", "fail", "slow-fail", "hang" or a delay in seconds."""
+
+    def __init__(self, **scripts):
+        self.scripts = {text: list(steps) for text, steps in scripts.items()}
+        self.calls = []
+        self.lock = threading.Lock()
+        self.release = threading.Event()  # set at the end of a test so hung calls finish
+
+    def __call__(self, text, path):
+        with self.lock:
+            self.calls.append(text)
+            step = self.scripts[text].pop(0) if self.scripts.get(text) else "ok"
+        if step == "hang":
+            self.release.wait()
+        elif step in ("fail", "slow-fail"):
+            time.sleep(0.2 if step == "slow-fail" else 0)
+            raise RuntimeError("offline")
+        elif isinstance(step, float):
+            time.sleep(step)
+        path.write_bytes(b"mp3")
+
+
+def test_a_slow_request_gets_a_backup_and_the_backup_plays(tmp_path):
+    synth = ScriptedSynth(**{"One.": ["hang", "ok"]})
+    deps, log, fallbacks = make(tmp_path, synth=synth)
+    try:
+        assert speak("One.", deps, first_timeout=1.0, backup_after=0.1) == "finished"
+    finally:
+        synth.release.set()
+    assert log == [("play", "chunk0-backup.mp3"), ("close", "chunk0-backup.mp3")]
+    assert fallbacks == []
+
+
+def test_fast_requests_send_no_backup(tmp_path):
+    synth = ScriptedSynth()
+    deps, _, _ = make(tmp_path, synth=synth)
+    assert speak("One. Two.", deps, backup_after=1.0) == "finished"
+    assert sorted(synth.calls) == ["One.", "Two."]
+
+
+def test_a_failed_backup_does_not_beat_a_slow_success(tmp_path):
+    synth = ScriptedSynth(**{"One.": [0.3, "fail"]})
+    deps, log, fallbacks = make(tmp_path, synth=synth)
+    assert speak("One.", deps, first_timeout=2.0, backup_after=0.05) == "finished"
+    assert log == [("play", "chunk0.mp3"), ("close", "chunk0.mp3")]
+    assert fallbacks == []
+
+
+def test_slow_failure_and_failed_backup_falls_back(tmp_path):
+    synth = ScriptedSynth(**{"One.": ["slow-fail", "fail"]})
+    deps, _, fallbacks = make(tmp_path, synth=synth)
+    assert speak("One.", deps, first_timeout=2.0, backup_after=0.05) == "fallback"
+    assert fallbacks[0][0] == "One."
+    assert synth.calls == ["One.", "One."]
+
+
+def test_every_chunk_is_requested_straight_away(tmp_path):
+    two_requested = threading.Event()
+
+    def synth(text, path):
+        if text == "One.":
+            assert two_requested.wait(timeout=2), "chunk 1 was not requested until chunk 0 was ready"
+        else:
+            two_requested.set()
+        path.write_bytes(b"mp3")
+
+    deps, log, fallbacks = make(tmp_path, synth=synth)
+    assert speak("One. Two.", deps, first_timeout=3.0, backup_after=10.0) == "finished"
+    assert log == [("play", "chunk0.mp3"), ("close", "chunk0.mp3"), ("play", "chunk1.mp3"), ("close", "chunk1.mp3")]
     assert fallbacks == []
 
 

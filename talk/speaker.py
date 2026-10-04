@@ -20,6 +20,9 @@ from talk.speakable import speech_chunks
 
 FIRST_AUDIO_TIMEOUT = 5.0
 NEXT_AUDIO_TIMEOUT = 15.0
+# The online voice answers in ~0.4 s but stalls 2-5 s on about 1 request in 4, independently per request,
+# so a chunk still missing after this long gets a second identical request and the first to arrive is used.
+BACKUP_AFTER = 1.0
 POLL_SECONDS = 0.05
 _STOPPED = object()
 SWEEP_AFTER_SECONDS = 3600
@@ -46,29 +49,22 @@ class Deps:
 
 
 def speak(
-    text: str, deps: Deps, first_timeout: float = FIRST_AUDIO_TIMEOUT, next_timeout: float = NEXT_AUDIO_TIMEOUT
+    text: str,
+    deps: Deps,
+    first_timeout: float = FIRST_AUDIO_TIMEOUT,
+    next_timeout: float = NEXT_AUDIO_TIMEOUT,
+    backup_after: float = BACKUP_AFTER,
 ) -> str:
     """Speak text. Returns "finished", "stopped", "fallback" (finished in the Windows voice) or "failed"."""
     chunks = speech_chunks(text)
-    results: queue.Queue = queue.Queue()
     cancel = threading.Event()
-
-    def produce() -> None:
-        for index, chunk in enumerate(chunks):
-            if cancel.is_set():
-                return
-            path = deps.work_dir / f"chunk{index}.mp3"
-            try:
-                deps.synthesize(chunk, path)
-            except Exception as exc:
-                results.put(exc)
-                return
-            results.put(path)
-
-    threading.Thread(target=produce, daemon=True).start()
+    results = [queue.Queue() for _ in chunks]
+    for index, chunk in enumerate(chunks):  # request every chunk now, so later ones are ready when needed
+        args = (chunk, f"chunk{index}", deps, backup_after, cancel, results[index])
+        threading.Thread(target=_fetch, args=args, daemon=True).start()
     try:
         for index in range(len(chunks)):
-            item = _wait_for(results, first_timeout if index == 0 else next_timeout, deps.should_stop)
+            item = _wait_for(results[index], first_timeout if index == 0 else next_timeout, deps.should_stop)
             if item is _STOPPED:
                 return "stopped"
             if item is None or isinstance(item, Exception):
@@ -83,6 +79,30 @@ def speak(
         return "finished"
     finally:
         cancel.set()
+
+
+def _fetch(chunk: str, name: str, deps: Deps, backup_after: float, cancel: threading.Event, result: queue.Queue) -> None:
+    """Put the chunk's audio path (or the exception) on result. A slow request gets a backup; the first success wins."""
+    attempts: queue.Queue = queue.Queue()
+
+    def attempt(path: Path) -> None:
+        try:
+            deps.synthesize(chunk, path)
+            attempts.put(path)
+        except Exception as exc:
+            attempts.put(exc)
+
+    threading.Thread(target=attempt, args=(deps.work_dir / f"{name}.mp3",), daemon=True).start()
+    try:
+        result.put(attempts.get(timeout=backup_after))
+        return
+    except queue.Empty:
+        pass
+    if cancel.is_set():
+        return
+    threading.Thread(target=attempt, args=(deps.work_dir / f"{name}-backup.mp3",), daemon=True).start()
+    first = attempts.get()
+    result.put(first if not isinstance(first, Exception) else attempts.get())
 
 
 def _wait_for(results: queue.Queue, timeout: float, should_stop: Callable[[], bool]):
