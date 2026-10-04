@@ -1,6 +1,9 @@
 import pytest
 
-from talk.speakable import DETAILS_ON_SCREEN, NOTHING_TO_SAY, REST_ON_SCREEN, speech_chunks, split_sentences, to_speech
+from talk.speakable import (
+    DETAILS_ON_SCREEN, NOTHING_TO_SAY, REST_ON_SCREEN, full_speech, speech_chunks, split_sentences, summary_speech,
+    to_speech,
+)
 
 LONG_LIST = "\n".join(
     f"- Updated module number {i} so that it uses the new helper consistently" for i in range(12)
@@ -133,3 +136,60 @@ def test_speech_chunks_start_with_the_first_sentence_alone():
 
 def test_speech_chunks_of_nothing():
     assert speech_chunks("") == []
+
+
+LONG_PROSE = " ".join([TEN_WORDS] * 15)  # one 150-word paragraph, over the 120-word full-read limit
+
+
+def test_full_speech_reads_past_the_length_limits():
+    reply = f"Opening line here.\n\n{LONG_PROSE}\n\nWant me to carry on?"
+    assert full_speech(reply) == f"Opening line here. {LONG_PROSE} Want me to carry on?"
+
+
+def test_full_speech_still_skips_code_blocks_and_tables():
+    reply = "Before the code.\n\n```py\nprint(1)\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    assert full_speech(reply) == "Before the code. After the table."
+
+
+def test_full_speech_reads_list_items_as_sentences():
+    assert full_speech("Steps:\n\n- one\n- two\n\nDone") == "Steps: one. two. Done."
+
+
+def test_full_speech_of_a_code_only_reply():
+    assert full_speech("```py\nprint(1)\n```") == NOTHING_TO_SAY
+
+
+def test_summary_is_the_last_speaker_paragraph():
+    reply = "Screen text.\n\n🔊 An earlier summary.\n\nMore text.\n\n🔊 The fix is in. Shall I push it?"
+    assert summary_speech(reply) == "The fix is in. Shall I push it?"
+
+
+def test_summary_wrapped_over_two_lines_is_kept_whole():
+    reply = "Body text.\n\n🔊 The fix is in and tested.\nShall I push it?\n\nTrailing note."
+    assert summary_speech(reply) == "The fix is in and tested. Shall I push it?"
+
+
+def test_summary_is_cleaned_like_other_speech():
+    reply = "Body.\n\n🔊 I changed `src/auth/session.ts:42` and **all** tests pass"
+    assert summary_speech(reply) == "I changed session.ts and all tests pass."
+
+
+def test_summary_may_be_indented_or_use_the_emoji_variation_selector():
+    assert summary_speech("Body.\n\n  🔊️ Done.") == "Done."
+
+
+def test_summary_inside_a_code_block_is_ignored():
+    assert summary_speech("Body.\n\n```text\n🔊 not this\n```\n") is None
+
+
+def test_speaker_emoji_in_running_text_is_not_a_summary():
+    assert summary_speech("I added a 🔊 icon to the toolbar.") is None
+
+
+def test_summary_found_in_a_reply_with_windows_line_endings():
+    assert summary_speech("Body.\r\n\r\n🔊 Short version.\r\n") == "Short version."
+
+
+def test_no_summary_or_an_empty_one():
+    assert summary_speech("Just a normal reply.") is None
+    assert summary_speech("Body.\n\n🔊") is None

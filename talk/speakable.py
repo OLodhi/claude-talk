@@ -32,6 +32,7 @@ _ITALIC_UNDERSCORE = re.compile(r"(?<![\w_])_(?=\S)(.+?)(?<=\S)_(?![\w_])")
 _STRIKE = re.compile(r"~~(.+?)~~")
 _EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?…])\s+")
+_SUMMARY_START = re.compile("^\\s*\U0001F50A️?")
 
 
 def to_speech(
@@ -52,6 +53,34 @@ def to_speech(
     if closing:
         return f"{spoken} {DETAILS_ON_SCREEN} {closing}"
     return f"{spoken} {REST_ON_SCREEN}"
+
+
+def full_speech(markdown: str) -> str:
+    """Every speakable paragraph, in order, with no length limit (same cleanup as to_speech)."""
+    texts = [text for text, _ in _paragraphs(markdown)]
+    return " ".join(texts) if texts else NOTHING_TO_SAY
+
+
+def summary_speech(markdown: str) -> str | None:
+    """The spoken summary Claude writes in summary mode: the last paragraph starting with 🔊 (code blocks
+    ignored), cleaned for speech. None when there is no such paragraph or it is empty."""
+    text = _FENCE.sub("\n", markdown.replace("\r\n", "\n"))
+    found: list[str] | None = None
+    current: list[str] | None = None
+    for line in text.split("\n"):
+        if current is not None:
+            if line.strip():
+                current.append(line)
+                continue
+            found, current = current, None
+        if _SUMMARY_START.match(line):
+            current = [_SUMMARY_START.sub("", line, count=1)]
+    if current is not None:
+        found = current
+    if found is None:
+        return None
+    spoken = _clean_inline(" ".join(found))
+    return _end_sentence(spoken) if spoken else None
 
 
 def _gist_paragraph(paragraphs: list[str]) -> tuple[str, int]:
