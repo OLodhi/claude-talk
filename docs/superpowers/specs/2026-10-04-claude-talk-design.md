@@ -94,7 +94,7 @@ C:\Users\olodh\Projects\claude-talk\
   tests\                    automated tests
   docs\superpowers\specs\   this document
   config.json               voice and length settings
-  requirements.txt          edge-tts (+ test deps)
+  pyproject.toml            package definition: edge-tts (+ pytest for development)
   README.md                 setup and usage
   .venv\                    project-only Python environment (not committed)
   state\                    session markers, current-speaker record (not committed)
@@ -115,7 +115,7 @@ Hooks call the project's own `.venv` Python, so nothing is installed into the gl
 - **The toggle:** if the session's marker `state/sessions/<session_id>` is absent, it's created and the reply is "🔊 Talk mode on: Claude will read replies aloud. Tap Space or Esc to stop it talking." If the marker is present, it's removed, any current speech is stopped, and the reply is "🔇 Talk mode off."
 - **Health check when turning on:** the hook confirms `edge-tts` can be imported. If it can't, talk mode stays off and the message says how to fix setup.
 - **Housekeeping:** when turning on, markers older than 7 days are deleted (they belong to sessions that ended without cleanup).
-- **Fallback, if it turns out to be needed:** if blocking via `UserPromptExpansion` doesn't behave as documented, the same logic moves to `UserPromptSubmit`, which sees the raw `/talk` text before expansion. This is verified as the first build task.
+- **Belt and braces:** the `UserPromptSubmit` hook also recognises a raw `/talk` and toggles the same way, in case `UserPromptExpansion` doesn't behave as documented. Both hooks are registered. The toggle remembers the last `prompt_id` it handled, so one `/talk` seen by both hooks flips the switch only once. The first build task probes how both hooks actually behave.
 
 ### 7.2 Nudge
 
@@ -197,7 +197,7 @@ Missing keys fall back to these defaults, and a broken file falls back to all de
 
 ## 10. Setup (done once during the build)
 
-1. Create `.venv` and install `requirements.txt`.
+1. Create `.venv` and install the package with `pip install -e ".[dev]"`.
 2. Add `~/.claude/commands/talk.md`.
 3. Add the four hook registrations to `~/.claude/settings.json`, merged with the existing settings.
 4. Switch dictation to tap mode: `"voice": {"enabled": true, "mode": "tap"}`.
