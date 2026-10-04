@@ -28,6 +28,7 @@ Edit `config.json`:
 Works on Windows with Claude Code installed. You need Git and an internet connection; if Python 3.13 is missing, setup installs it with winget.
 
 ```powershell
+mkdir $HOME\Projects -Force | Out-Null
 cd $HOME\Projects
 git clone https://github.com/OLodhi/claude-talk.git
 cd claude-talk
@@ -38,13 +39,14 @@ cd claude-talk
 
 Setup adds the hooks to `~\.claude\settings.json` (backing it up to `settings.json.bak-claude-talk` first), adds the `/talk` command and switches dictation to tap mode. The hooks point at this folder, so leave it where it is; if you move it, delete its `.venv` folder and run `setup.cmd` again.
 
-**Update:** `git pull`, then run `setup.cmd` again.
+**Update:** `git pull`, then run `setup.cmd` again. (`config.json` is part of the repo. If `git pull` refuses because you've changed it, run `git stash`, then `git pull`, then `git stash pop` to keep your settings.)
 
 **Remove:** `.venv\Scripts\python.exe -m talk.install --uninstall`
 
 ## Good to know
 
 - Spoken text (never code blocks) is sent to Microsoft's online voice service. This is an unofficial use of that service, so if it stops working, the Windows voice takes over.
+- The voice service sometimes stalls for a few seconds, so any block of speech not back within 1 second is requested a second time, and whichever copy arrives first is played. Microsoft may therefore receive some text twice.
 - Space and Esc stop Claude talking anywhere in Windows while it speaks, including in other apps.
 - Problems? Check `logs\talk.log`. Test the voice on its own with `.venv\Scripts\python.exe scripts\say.py "Hello"`.
 - `/clear` starts a fresh session, so talk mode switches off; type `/talk` again.

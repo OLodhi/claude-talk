@@ -1,5 +1,7 @@
 # Claude Talk Implementation Plan
 
+> **Historical record. Completed and merged on 2026-10-04; don't re-run it.** This is the original build plan, kept as written. Paths and steps here reflect the first build on one PC. For the current design (portable `setup.cmd` install, chunks requested at once with backup requests), see the spec: `docs/superpowers/specs/2026-10-04-claude-talk-design.md` (§13 lists the changes).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Claude Code read its replies aloud, in Microsoft's neural voices, in sessions where the user has typed `/talk`.

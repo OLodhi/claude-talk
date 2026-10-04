@@ -1,7 +1,8 @@
 """The speaker process: python -m talk.speaker <job.json>
 
-Started detached by control.start_speaking. Speaks one reply, sentence by sentence, and stops
-the moment Space/Esc is pressed, a stop is requested, or a newer reply takes over."""
+Started detached by control.start_speaking. Speaks one reply chunk by chunk (all chunks are requested
+at once, with backup requests for slow ones), and stops the moment Space/Esc is pressed, a stop is
+requested, or a newer reply takes over."""
 import json
 import queue
 import shutil
