@@ -110,3 +110,29 @@ def test_speaker_command_uses_pythonw_from_this_environment(tmp_path):
     assert command[0].lower().endswith(("pythonw.exe", "python.exe"))
     assert command[1:3] == ["-m", "talk.speaker"]
     assert command[3] == str(tmp_path / "job.json")
+
+
+def test_reused_pid_is_not_killed():
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        (paths.state_dir() / "speaker.json").write_text(
+            json.dumps({"pid": proc.pid, "token": "old", "session_id": "s1", "started": time.time() - 3600}),
+            encoding="utf-8",
+        )
+        assert control.stop_speaking() is True
+        assert control.current_speaker() is None
+        assert procs.is_alive(proc.pid)
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_started_at_reports_creation_time_or_none():
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        assert abs(procs.started_at(proc.pid) - time.time()) < 5
+    finally:
+        proc.kill()
+        proc.wait()
+    result = subprocess.run([sys.executable, "-c", "import os; print(os.getpid())"], capture_output=True, text=True)
+    assert procs.started_at(int(result.stdout)) is None

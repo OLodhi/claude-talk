@@ -56,6 +56,15 @@ def clear_speaker(token: str) -> None:
         _stop_file().unlink(missing_ok=True)
 
 
+def _is_running(record: dict) -> bool:
+    """True only if record's pid is alive AND was created no later than the record (guards pid reuse)."""
+    pid = record["pid"]
+    if not procs.is_alive(pid):
+        return False
+    created = procs.started_at(pid)
+    return created is not None and created <= record.get("started", 0) + 1.0
+
+
 def stop_speaking(session_id: str | None = None, wait: float = STOP_WAIT_SECONDS) -> bool:
     """Stop the current speaker (only if it belongs to session_id, when given). True if one was stopped."""
     current = current_speaker()
@@ -64,12 +73,12 @@ def stop_speaking(session_id: str | None = None, wait: float = STOP_WAIT_SECONDS
     if session_id is not None and current.get("session_id") != session_id:
         return False
     pid, token = current["pid"], current["token"]
-    if procs.is_alive(pid):
+    if _is_running(current):
         _stop_file().write_text(token, encoding="utf-8")
         deadline = time.monotonic() + wait
-        while procs.is_alive(pid) and time.monotonic() < deadline:
+        while _is_running(current) and time.monotonic() < deadline:
             time.sleep(0.02)
-        if procs.is_alive(pid):
+        if _is_running(current):
             procs.kill_tree(pid)
     clear_speaker(token)
     return True
