@@ -80,6 +80,16 @@ def test_stop_speaks_the_cleaned_reply(calls):
     assert calls["start"] == [("Done. See b.py.", "s1")]
 
 
+def test_stop_reads_the_closing_of_a_long_reply(calls):
+    switch.turn_on("s1")
+    items = "\n".join(f"- Updated module number {i} so that it uses the new helper consistently" for i in range(12))
+    reply = "Gist sentence for this reply.\n\n" + items + "\n\nWant me to open a pull request?"
+    assert run("stop", {"session_id": "s1", "last_assistant_message": reply}) is None
+    assert calls["start"] == [
+        ("Gist sentence for this reply. The remainder of details are on screen. Want me to open a pull request?", "s1")
+    ]
+
+
 def test_stop_handles_non_ascii_reply(calls):
     switch.turn_on("s1")
     run("stop", {"session_id": "s1", "last_assistant_message": "It costs £5 — that’s fine."})

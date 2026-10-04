@@ -6,7 +6,7 @@ Makes Claude Code read its replies aloud, so you can have a spoken conversation 
 
 1. In any Claude Code session, type `/talk`. You'll see "🔊 Talk mode on".
 2. Tap **Space**, speak, then tap **Space** again to send (built-in tap dictation).
-3. Claude replies on screen and reads out the gist. Code and long detail stay on screen.
+3. Claude replies on screen and reads out the gist and its closing question or offer. Code and long detail stay on screen.
 4. Tap **Space** (to reply) or press **Esc** to cut Claude off.
 5. Type `/talk` again to turn it off. Other sessions stay silent unless you turn them on.
 
@@ -20,6 +20,7 @@ Edit `config.json`:
 | `rate` | `+0%` | Speaking speed, e.g. `+15%` or `-10%` |
 | `full_read_max_words` | `120` | Replies up to this many spoken words are read in full |
 | `gist_max_words` | `60` | Longer replies: at most this many words of the opening paragraph |
+| `closing_max_words` | `40` | Longer replies: at most this many words of the closing paragraph, read after "The remainder of details are on screen." |
 | `fallback_to_windows_voice` | `true` | Use the built-in Windows voice if the online voice fails |
 
 ## Setup (once)

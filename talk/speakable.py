@@ -2,10 +2,12 @@
 import re
 
 REST_ON_SCREEN = "The rest is on screen."
+DETAILS_ON_SCREEN = "The remainder of details are on screen."
 NOTHING_TO_SAY = "Done. The details are on screen."
 INLINE_CODE_MAX_WORDS = 3
 INLINE_CODE_MAX_CHARS = 30
 
+_CODE_SENTINEL = "\x00code"
 _FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*\1[ \t]*$|\Z)", re.MULTILINE | re.DOTALL)
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s")
@@ -32,18 +34,29 @@ _EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?…])\s+")
 
 
-def to_speech(markdown: str, full_read_max_words: int = 120, gist_max_words: int = 60) -> str:
-    """Short replies are read in full; long ones give the opening paragraph, then REST_ON_SCREEN."""
+def to_speech(
+    markdown: str, full_read_max_words: int = 120, gist_max_words: int = 60, closing_max_words: int = 40
+) -> str:
+    """Short replies are read in full. Long ones give the opening paragraph (the gist), then either
+    REST_ON_SCREEN, or, when the reply ends in a prose paragraph of its own, DETAILS_ON_SCREEN and
+    the final sentences of that closing paragraph (at most closing_max_words)."""
     paragraphs = _paragraphs(markdown)
     if not paragraphs:
         return NOTHING_TO_SAY
-    if sum(_word_count(p) for p in paragraphs) <= full_read_max_words:
-        return " ".join(paragraphs)
-    return f"{_trim(_gist_paragraph(paragraphs), gist_max_words)} {REST_ON_SCREEN}"
+    texts = [text for text, _ in paragraphs]
+    if sum(_word_count(t) for t in texts) <= full_read_max_words:
+        return " ".join(texts)
+    gist, gist_end = _gist_paragraph(texts)
+    spoken = _trim(gist, gist_max_words)
+    closing = _closing(paragraphs, gist_end, markdown, closing_max_words)
+    if closing:
+        return f"{spoken} {DETAILS_ON_SCREEN} {closing}"
+    return f"{spoken} {REST_ON_SCREEN}"
 
 
-def _gist_paragraph(paragraphs: list[str]) -> str:
-    """The opening paragraph, skipping short label paragraphs and joining a "...:" intro to what follows."""
+def _gist_paragraph(paragraphs: list[str]) -> tuple[str, int]:
+    """The opening paragraph, skipping short label paragraphs and joining a "...:" intro to what follows.
+    Also returns the index of the last paragraph used."""
     index = 0
     while (
         index + 1 < len(paragraphs)
@@ -54,7 +67,48 @@ def _gist_paragraph(paragraphs: list[str]) -> str:
     chosen = paragraphs[index]
     if chosen.endswith(":") and index + 1 < len(paragraphs):
         chosen = f"{chosen} {paragraphs[index + 1]}"
-    return chosen
+        index += 1
+    return chosen, index
+
+
+def _closing(paragraphs: list[tuple[str, bool]], gist_end: int, markdown: str, max_words: int) -> str:
+    """The final sentences of the last paragraph, or "" when it should not be read."""
+    last = len(paragraphs) - 1
+    if last <= gist_end:
+        return ""
+    text, is_list = paragraphs[last]
+    if is_list or text.endswith(":") or not _ends_in_prose(markdown):
+        return ""
+    return _trim_end(text, max_words)
+
+
+def _ends_in_prose(markdown: str) -> bool:
+    text = _FENCE.sub(f"\n{_CODE_SENTINEL}\n", markdown.replace("\r\n", "\n"))
+    text = _HTML_COMMENT.sub("", text)
+    lines = [line for line in text.split("\n") if line.strip()]
+    if not lines:
+        return False
+    last = lines[-1]
+    if last.strip() == _CODE_SENTINEL:
+        return False
+    return not (
+        _TABLE_ROW.match(last)
+        or _HEADING.match(last)
+        or _RULE.match(last)
+        or _LIST_ITEM.match(_QUOTE.sub("", last))
+    )
+
+
+def _trim_end(text: str, max_words: int) -> str:
+    kept: list[str] = []
+    count = 0
+    for sentence in reversed(split_sentences(text)):
+        words = _word_count(sentence)
+        if count + words > max_words:
+            break
+        kept.append(sentence)
+        count += words
+    return " ".join(reversed(kept))
 
 
 def split_sentences(text: str) -> list[str]:
@@ -79,17 +133,17 @@ def speech_chunks(text: str, max_chars: int = 250) -> list[str]:
     return chunks
 
 
-def _paragraphs(markdown: str) -> list[str]:
+def _paragraphs(markdown: str) -> list[tuple[str, bool]]:
     text = _FENCE.sub("\n", markdown.replace("\r\n", "\n"))
     text = _HTML_COMMENT.sub("", text)
-    paragraphs: list[str] = []
+    paragraphs: list[tuple[str, bool]] = []
     current: list[str] = []
     current_is_list = False
 
     for raw in text.split("\n"):
         if not raw.strip() or _HEADING.match(raw) or _RULE.match(raw) or _TABLE_ROW.match(raw):
             if current:
-                paragraphs.append(" ".join(current))
+                paragraphs.append((" ".join(current), current_is_list))
                 current = []
             continue
         line = _QUOTE.sub("", raw)
@@ -97,7 +151,7 @@ def _paragraphs(markdown: str) -> list[str]:
         if is_list:
             line = _CHECKBOX.sub("", _LIST_ITEM.sub("", line, count=1))
         if current and is_list != current_is_list:
-            paragraphs.append(" ".join(current))
+            paragraphs.append((" ".join(current), current_is_list))
             current = []
         line = _clean_inline(line)
         if not line:
@@ -107,8 +161,8 @@ def _paragraphs(markdown: str) -> list[str]:
         current.append(_end_sentence(line) if is_list else line)
 
     if current:
-        paragraphs.append(" ".join(current))
-    return [_end_sentence(p) for p in paragraphs]
+        paragraphs.append((" ".join(current), current_is_list))
+    return [(_end_sentence(p), is_list) for p, is_list in paragraphs]
 
 
 def _clean_inline(line: str) -> str:

@@ -1,6 +1,6 @@
 import pytest
 
-from talk.speakable import NOTHING_TO_SAY, REST_ON_SCREEN, speech_chunks, split_sentences, to_speech
+from talk.speakable import DETAILS_ON_SCREEN, NOTHING_TO_SAY, REST_ON_SCREEN, speech_chunks, split_sentences, to_speech
 
 LONG_LIST = "\n".join(
     f"- Updated module number {i} so that it uses the new helper consistently" for i in range(12)
@@ -11,6 +11,22 @@ BUILD_REPLY = (
 )
 TEN_WORDS = "This sentence has exactly ten words in it right here."
 HUGE_SENTENCE = " ".join(["word"] * 80) + "."
+
+JOB_REPLY = (
+    "Give it about a week from when you applied. The system has both follow-ups set for 10 October, "
+    "but that's a Saturday, so I'd send them on Monday the 12th.\n\n"
+    "- **Cadence**: your follow-up settings allow one message 7 days after applying and, if there's still "
+    "no reply, a second one 7 days later. Two is the limit; after that, leave it.\n"
+    "- **Who to contact**: you applied to both through their own job systems (TXP's HiBob site and Kainos's "
+    "Workday), and the tracker has no recruiter or hiring manager listed for either. Following up through those "
+    "systems usually goes nowhere, so a short note to a named recruiter on LinkedIn will work better.\n"
+    "- **Kainos**: the role was posted on 28 September, so they're probably still collecting applications. "
+    "A week of silence is normal for a large consultancy.\n"
+    "- **TXP**: the posting has been up since 19 July, so they may be further along or just slow. "
+    "Either way, the same timing applies.\n\n"
+    "If you want, I can find the right recruiter at each company and draft short follow-up messages so "
+    "they're ready to send on Monday."
+)
 
 CASES = [
     ("plain chat",
@@ -56,6 +72,19 @@ CASES = [
      "Here's what I changed: "
      + " ".join(f"Updated module number {i} so that it uses the new helper consistently." for i in range(4))
      + " " + REST_ON_SCREEN),
+    ("closing paragraph is read after the bridge", JOB_REPLY,
+     "Give it about a week from when you applied. The system has both follow-ups set for 10 October, "
+     "but that's a Saturday, so I'd send them on Monday the 12th. " + DETAILS_ON_SCREEN
+     + " If you want, I can find the right recruiter at each company and draft short follow-up messages so "
+     "they're ready to send on Monday."),
+    ("closing before a table is not read",
+     "Gist sentence for this reply.\n\n" + LONG_LIST + "\n\nHere is the comparison.\n\n| A | B |\n|---|---|\n| 1 | 2 |",
+     "Gist sentence for this reply. " + REST_ON_SCREEN),
+    ("closing ending in a colon is not read",
+     "Gist sentence for this reply.\n\n" + LONG_LIST + "\n\nRun this to check:\n\n```\npytest\n```",
+     "Gist sentence for this reply. " + REST_ON_SCREEN),
+    ("single long paragraph gives gist only", " ".join([TEN_WORDS] * 13),
+     " ".join([TEN_WORDS] * 6) + " " + REST_ON_SCREEN),
 ]
 
 
@@ -67,7 +96,27 @@ def test_to_speech(given, expected):
 def test_limits_are_configurable():
     reply = "One two three four five. Six seven eight nine ten.\n\nEleven twelve."
     assert to_speech(reply, full_read_max_words=100) == "One two three four five. Six seven eight nine ten. Eleven twelve."
-    assert to_speech(reply, full_read_max_words=5, gist_max_words=5) == "One two three four five. " + REST_ON_SCREEN
+    assert to_speech(reply, full_read_max_words=5, gist_max_words=5) == (
+        "One two three four five. " + DETAILS_ON_SCREEN + " Eleven twelve."
+    )
+
+
+def test_closing_keeps_its_final_sentences():
+    reply = (
+        "Gist sentence for this reply.\n\n" + LONG_LIST
+        + "\n\nI also tidied the imports and renamed two helpers so the names match what they do now. "
+        "The old names are gone everywhere. Want me to open a pull request?"
+    )
+    assert to_speech(reply) == (
+        "Gist sentence for this reply. " + DETAILS_ON_SCREEN
+        + " I also tidied the imports and renamed two helpers so the names match what they do now. "
+        "The old names are gone everywhere. Want me to open a pull request?"
+    )
+    assert to_speech(reply, closing_max_words=15) == (
+        "Gist sentence for this reply. " + DETAILS_ON_SCREEN
+        + " The old names are gone everywhere. Want me to open a pull request?"
+    )
+    assert to_speech(reply, closing_max_words=5) == "Gist sentence for this reply. " + REST_ON_SCREEN
 
 
 def test_split_sentences_does_not_split_file_names():

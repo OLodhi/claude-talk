@@ -13,6 +13,7 @@ def test_missing_file_gives_defaults():
     assert Config().rate == "+0%"
     assert Config().full_read_max_words == 120
     assert Config().gist_max_words == 60
+    assert Config().closing_max_words == 40
     assert Config().fallback_to_windows_voice is True
 
 

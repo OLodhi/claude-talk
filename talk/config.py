@@ -12,6 +12,7 @@ class Config:
     rate: str = "+0%"
     full_read_max_words: int = 120
     gist_max_words: int = 60
+    closing_max_words: int = 40
     fallback_to_windows_voice: bool = True
 
 

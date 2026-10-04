@@ -153,6 +153,8 @@ The path rule is applied before the inline-code length rule, so `` `src/auth/ses
 
 - If the speakable text is `full_read_max_words` (default 120) or fewer, read it all.
 - Otherwise read only the **first paragraph**, trimmed at a sentence boundary to `gist_max_words` (default 60), then add "The rest is on screen." The "first paragraph" is the first block of speakable text left after headings and removed elements are stripped. A run of consecutive list items counts as one paragraph.
+- Then, if the reply ends in a prose paragraph of its own, read "The remainder of details are on screen." followed by that **closing paragraph** (the last speakable paragraph) instead of "The rest is on screen." Only its final sentences are kept: whole sentences, walking back from the last one, while the total stays within `closing_max_words` (default 40). If the last sentence alone is longer than that, there is no closing.
+- No closing is read (the output ends with "The rest is on screen.") when the last paragraph is a list, ends with ":", or is already part of the gist, or when the reply does not end in prose (its last non-blank line, after removing code blocks, is a code block, table row, list item, heading or horizontal rule).
 - If nothing speakable remains (e.g. a code-only reply), say "Done. The details are on screen."
 
 ### 7.5 Speaker process
@@ -182,6 +184,7 @@ The path rule is applied before the inline-code length rule, so `` `src/auth/ses
   "rate": "+0%",
   "full_read_max_words": 120,
   "gist_max_words": 60,
+  "closing_max_words": 40,
   "fallback_to_windows_voice": true
 }
 ```

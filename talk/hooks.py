@@ -70,7 +70,7 @@ def handle_stop(payload: dict) -> None:
     if payload.get("agent_id") or not reply or not switch.is_on(session_id):
         return None
     cfg = load_config()
-    speech = to_speech(reply, cfg.full_read_max_words, cfg.gist_max_words)
+    speech = to_speech(reply, cfg.full_read_max_words, cfg.gist_max_words, cfg.closing_max_words)
     pid = control.start_speaking(speech, session_id)
     get_logger().info("session %s: speaking %d words", session_id[:8], len(speech.split()))
     if WAIT_FOR_SPEAKER:
