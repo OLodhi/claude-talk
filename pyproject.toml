@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-talk"
+version = "0.1.0"
+description = "Makes Claude Code read its replies aloud"
+requires-python = ">=3.13"
+dependencies = ["edge-tts>=7.2,<8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["talk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
