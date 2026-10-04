@@ -1,5 +1,8 @@
+import json
+import os
 import time
 
+from talk import control, paths, speaker
 from talk.speaker import Deps, speak
 
 
@@ -137,3 +140,46 @@ def test_stop_during_fallback_kills_it(tmp_path):
     deps.should_stop = lambda: bool(fallbacks)  # stop as soon as the fallback voice has started
     assert speak("One.", deps) == "stopped"
     assert fallbacks[0][1].killed is True
+
+
+def test_main_never_raises_and_cleans_up(monkeypatch, talk_home):
+    job = paths.jobs_dir() / "abc.json"
+    job.write_text(json.dumps({"token": "abc", "session_id": "s1", "text": "Hi."}), encoding="utf-8")
+    (paths.state_dir() / "speaker.json").write_text(
+        json.dumps({"pid": 1, "token": "abc", "session_id": "s1"}), encoding="utf-8"
+    )
+
+    def explode(text, token):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(speaker, "_speak_job", explode)
+    assert speaker.main([str(job)]) == 0
+    assert not job.exists()
+    assert control.current_speaker() is None
+    assert "speaker failed" in (talk_home / "logs" / "talk.log").read_text(encoding="utf-8")
+
+
+def test_main_passes_the_job_text_on(monkeypatch):
+    job = paths.jobs_dir() / "def.json"
+    job.write_text(json.dumps({"token": "def", "session_id": "s1", "text": "It costs £5."}), encoding="utf-8")
+    spoken = []
+    monkeypatch.setattr(speaker, "_speak_job", lambda text, token: spoken.append((text, token)) or "finished")
+    assert speaker.main([str(job)]) == 0
+    assert spoken == [("It costs £5.", "def")]
+
+
+def test_sweep_removes_only_old_leftovers():
+    old_dir = paths.state_dir() / "speak-old"
+    old_dir.mkdir()
+    (old_dir / "chunk0.mp3").write_bytes(b"x")
+    fresh_dir = paths.state_dir() / "speak-fresh"
+    fresh_dir.mkdir()
+    old_job = paths.jobs_dir() / "old.json"
+    old_job.write_text("{}", encoding="utf-8")
+    two_hours_ago = time.time() - 7200
+    for path in (old_dir, old_job):
+        os.utime(path, (two_hours_ago, two_hours_ago))
+    speaker._sweep_old_files()
+    assert not old_dir.exists()
+    assert not old_job.exists()
+    assert fresh_dir.exists()
