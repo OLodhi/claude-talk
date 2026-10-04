@@ -190,6 +190,16 @@ def test_summary_found_in_a_reply_with_windows_line_endings():
     assert summary_speech("Body.\r\n\r\n🔊 Short version.\r\n") == "Short version."
 
 
+def test_summary_with_a_list_reads_the_items_as_sentences():
+    reply = "Body.\n\n🔊 Two things to check:\n- the login page\n- the API"
+    assert summary_speech(reply) == "Two things to check: the login page. the API."
+
+
+def test_summary_drops_table_rows_and_html_comments():
+    assert summary_speech("Body.\n\n🔊 Done:\n| a | b |\n|---|---|") == "Done:"
+    assert summary_speech("Body.\n\n🔊 Done <!-- note --> now.") == "Done now."
+
+
 def test_no_summary_or_an_empty_one():
     assert summary_speech("Just a normal reply.") is None
     assert summary_speech("Body.\n\n🔊") is None

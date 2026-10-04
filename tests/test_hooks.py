@@ -235,6 +235,15 @@ def test_summary_mode_without_a_summary_falls_back_to_gist(calls, talk_home):
     assert "no spoken summary" in log_text(talk_home)
 
 
+def test_fallback_is_logged_with_the_session_and_the_mode_actually_used(calls, talk_home):
+    switch.turn_on("s1", "summary")
+    run("stop", {"session_id": "s1", "last_assistant_message": "Plain reply with no summary."})
+    log = log_text(talk_home)
+    assert "session s1: no spoken summary; using gist" in log
+    assert "speaking 5 words (gist)" in log
+    assert "(summary)" not in log
+
+
 def test_full_mode_speaks_the_whole_reply(calls):
     switch.turn_on("s1", "full")
     items = "\n".join(f"- Updated module number {i} so that it uses the new helper consistently" for i in range(12))

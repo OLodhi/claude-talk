@@ -64,7 +64,7 @@ The `/talk` command file gets `argument-hint: [gist|full|summary]` so autocomple
 
 ## 6. Storing the mode
 
-- **Default:** `config.json` gets a `"mode"` key, defaulting to `"gist"`. Any value other than `gist`, `full` or `summary` is ignored with a log warning, and `gist` is used.
+- **Default:** `config.json` gets a `"mode"` key, defaulting to `"gist"`. Capitals and surrounding spaces are ignored, as with `/talk <mode>`. Any other value is ignored with a log warning, and `gist` is used.
 - **Per session:** the session's marker file (`state/sessions/<session_id>`) holds the mode word when one was chosen with `/talk <mode>`. An empty marker, the result of `/talk` on its own, means "use the default". So changing `config.json` affects those sessions from their next reply.
 - **Unchanged behaviour:**
   - The marker existing still means talk is on.

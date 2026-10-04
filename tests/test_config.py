@@ -64,3 +64,8 @@ def test_unknown_mode_falls_back_to_gist_and_is_logged(talk_home):
     assert cfg.mode == "gist"
     assert cfg.voice == "en-GB-RyanNeural"  # other keys still apply
     assert "mode='loud'" in (talk_home / "logs" / "talk.log").read_text(encoding="utf-8")
+
+
+def test_mode_ignores_case_and_spaces_like_the_talk_command(talk_home):
+    write_config(talk_home, json.dumps({"mode": " Full "}))
+    assert load_config().mode == "full"

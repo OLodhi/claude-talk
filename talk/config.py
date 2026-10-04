@@ -38,6 +38,8 @@ def load_config() -> Config:
         if field.name not in data:
             continue
         value, default = data[field.name], getattr(defaults, field.name)
+        if field.name == "mode" and isinstance(value, str):
+            value = value.strip().lower()  # same leniency as /talk <mode>
         if type(value) is not type(default):
             get_logger().warning(
                 "Ignoring config.json %s=%r: expected %s", field.name, value, type(default).__name__

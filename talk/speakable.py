@@ -32,7 +32,7 @@ _ITALIC_UNDERSCORE = re.compile(r"(?<![\w_])_(?=\S)(.+?)(?<=\S)_(?![\w_])")
 _STRIKE = re.compile(r"~~(.+?)~~")
 _EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?…])\s+")
-_SUMMARY_START = re.compile("^\\s*\U0001F50A️?")
+_SUMMARY_START = re.compile("^\\s*\U0001F50A\ufe0f?")
 
 
 def to_speech(
@@ -79,8 +79,8 @@ def summary_speech(markdown: str) -> str | None:
         found = current
     if found is None:
         return None
-    spoken = _clean_inline(" ".join(found))
-    return _end_sentence(spoken) if spoken else None
+    texts = [text for text, _ in _paragraphs("\n".join(found))]  # full cleanup: lists, tables, HTML too
+    return " ".join(texts) if texts else None
 
 
 def _gist_paragraph(paragraphs: list[str]) -> tuple[str, int]:

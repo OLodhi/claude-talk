@@ -49,12 +49,12 @@ def talk_on_message(mode: str) -> str:
 
 
 def unknown_mode_message(word: str) -> str:
-    return f'⚠️ Unknown talk mode "{word}". Use /talk, /talk gist, /talk full or /talk summary.'
+    return f'⚠\ufe0f Unknown talk mode "{word}". Use /talk, /talk gist, /talk full or /talk summary.'
 
 
 def setup_broken() -> str:
     return (
-        "⚠️ Talk mode couldn't start because the voice package isn't installed. "
+        "⚠\ufe0f Talk mode couldn't start because the voice package isn't installed. "
         f"Run {paths.root() / 'setup.cmd'} to repair it."
     )
 
@@ -110,15 +110,16 @@ def handle_prompt(payload: dict) -> dict | None:
     return None
 
 
-def _speech_for(reply: str, mode: str, cfg: Config) -> str:
+def _speech_for(reply: str, mode: str, cfg: Config, session_id: str) -> tuple[str, str]:
+    """The text to speak and the mode actually used (summary falls back to gist)."""
     if mode == "full":
-        return full_speech(reply)
+        return full_speech(reply), "full"
     if mode == "summary":
         summary = summary_speech(reply)
         if summary:
-            return summary
-        get_logger().info("no spoken summary; using gist")
-    return to_speech(reply, cfg.full_read_max_words, cfg.gist_max_words, cfg.closing_max_words)
+            return summary, "summary"
+        get_logger().info("session %s: no spoken summary; using gist", session_id[:8])
+    return to_speech(reply, cfg.full_read_max_words, cfg.gist_max_words, cfg.closing_max_words), "gist"
 
 
 def handle_stop(payload: dict) -> None:
@@ -127,10 +128,9 @@ def handle_stop(payload: dict) -> None:
     if payload.get("agent_id") or not reply or not switch.is_on(session_id):
         return None
     cfg = load_config()
-    mode = _session_mode(session_id, cfg)
-    speech = _speech_for(reply, mode, cfg)
+    speech, used = _speech_for(reply, _session_mode(session_id, cfg), cfg, session_id)
     pid = control.start_speaking(speech, session_id)
-    get_logger().info("session %s: speaking %d words (%s)", session_id[:8], len(speech.split()), mode)
+    get_logger().info("session %s: speaking %d words (%s)", session_id[:8], len(speech.split()), used)
     if WAIT_FOR_SPEAKER:
         while procs.is_alive(pid):
             time.sleep(0.2)
