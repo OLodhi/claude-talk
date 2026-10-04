@@ -115,7 +115,7 @@ Hooks call the project's own `.venv` Python, so nothing is installed into the gl
 
 - `~/.claude/commands/talk.md` exists so `/talk` shows up in the command list. Its body is a harmless safety net: if the hook ever fails to intercept the command, Claude is told to reply only "Talk mode isn't set up correctly. Check `<install folder>\logs\talk.log`." The command sets `disable-model-invocation: true`, so Claude can't run it by itself.
 - A `UserPromptExpansion` hook with matcher `talk` intercepts the command and **blocks** it, so it never reaches Claude and costs no tokens. The block `reason` is the message the user sees.
-- **The toggle:** if the session's marker `state/sessions/<session_id>` is absent, it's created and the reply is "🔊 Talk mode on: Claude will read replies aloud. Tap Space or Esc to stop it talking." If the marker is present, it's removed, any current speech is stopped, and the reply is "🔇 Talk mode off."
+- **The toggle:** if the session's marker `state/sessions/<session_id>` is absent, it's created and the reply is "🔊 Talk mode on (<mode>): …". See the speech modes spec (`2026-10-04-talk-modes-design.md`) for `/talk <mode>` and the exact wording. If the marker is present, it's removed, any current speech is stopped, and the reply is "🔇 Talk mode off."
 - **Health check when turning on:** the hook confirms `edge-tts` can be imported. If it can't, talk mode stays off and the message says to run `setup.cmd` in the install folder to repair it.
 - **Housekeeping:** when turning on, markers older than 7 days are deleted (they belong to sessions that ended without cleanup).
 - **Belt and braces:** the `UserPromptSubmit` hook also recognises a raw `/talk` and toggles the same way, in case `UserPromptExpansion` doesn't behave as documented. Both hooks are registered. The toggle remembers the last `prompt_id` it handled, so one `/talk` seen by both hooks flips the switch only once. The first build task probes how both hooks actually behave.
@@ -129,6 +129,8 @@ Hooks call the project's own `.venv` Python, so nothing is installed into the gl
 
 > Talk mode is on: your reply will be read aloud to the user. Open with one or two plain sentences giving the gist, written the way you'd say it out loud. If the user is just chatting, keep the whole reply short and conversational. For technical work, put the details (code, file paths, lists) after the gist as usual; they stay on screen and won't be read out.
 
+That is the gist-mode nudge; full and summary modes have their own (speech modes spec §7).
+
 Sessions without the marker get no output, so their behaviour is unchanged.
 
 ### 7.3 Speaker launcher
@@ -136,6 +138,8 @@ Sessions without the marker get no output, so their behaviour is unchanged.
 `Stop` hook. If the session's marker exists and `last_assistant_message` is non-empty, it launches the Speaker as a **detached background process** (passing the reply text and the session id via a temp file) and exits immediately. The session is never kept waiting.
 
 ### 7.4 Turning a reply into speech (`speakable`)
+
+This is gist mode, the default. Full and summary modes are described in `2026-10-04-talk-modes-design.md`.
 
 A pure function from Markdown to plain text:
 
@@ -190,7 +194,8 @@ The path rule is applied before the inline-code length rule, so `` `src/auth/ses
   "full_read_max_words": 120,
   "gist_max_words": 60,
   "closing_max_words": 40,
-  "fallback_to_windows_voice": true
+  "fallback_to_windows_voice": true,
+  "mode": "gist"
 }
 ```
 
@@ -251,3 +256,4 @@ All on 2026-10-04:
 - **Closing paragraph** (`e2141d3`): long replies read the gist, then "The remainder of details are on screen." and the closing paragraph, after feedback from the interactive check.
 - **Portable install** (`f76f143`): `setup.cmd`/`setup.ps1`, no hardcoded folder paths, and the repo moved to private GitHub (`OLodhi/claude-talk`) so another PC can install and update it.
 - **No pause after the first sentence** (`be70eed`): all chunks are requested at once, and slow requests get a backup (§7.5).
+- **Speech modes**: `/talk gist|full|summary`, a `mode` default in `config.json`, and a 🔊 summary line in summary mode (`2026-10-04-talk-modes-design.md`).

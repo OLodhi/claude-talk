@@ -4,11 +4,21 @@ Makes Claude Code read its replies aloud, so you can have a spoken conversation 
 
 ## Use it
 
-1. In any Claude Code session, type `/talk`. You'll see "🔊 Talk mode on".
+1. In any Claude Code session, type `/talk`. You'll see "🔊 Talk mode on (gist)".
 2. Tap **Space**, speak, then tap **Space** again to send (built-in tap dictation).
-3. Claude replies on screen and reads out the gist and its closing question or offer. Code and long detail stay on screen.
+3. Claude replies on screen and reads part of it aloud, depending on the mode (below). Code stays on screen.
 4. Tap **Space** (to reply) or press **Esc** to cut Claude off.
 5. Type `/talk` again to turn it off. Other sessions stay silent unless you turn them on.
+
+### Modes
+
+| Type | What Claude reads aloud |
+|---|---|
+| `/talk gist` | The opening, then "The remainder of details are on screen." and the closing question or offer |
+| `/talk full` | The whole reply, except code blocks and tables |
+| `/talk summary` | A short spoken summary that Claude adds as the last line of its reply, starting with 🔊 |
+
+`/talk` on its own uses the `mode` setting (default `gist`). Typing a mode while talk is on switches mode without turning it off. In summary mode, if Claude forgets the 🔊 line, the gist is read instead.
 
 ## Settings
 
@@ -17,6 +27,7 @@ Edit `config.json`:
 | Setting | Default | Meaning |
 |---|---|---|
 | `voice` | `en-GB-SoniaNeural` | Any Microsoft neural voice. List them with `.venv\Scripts\edge-tts.exe --list-voices` |
+| `mode` | `gist` | Mode used by `/talk` on its own: `gist`, `full` or `summary` |
 | `rate` | `+0%` | Speaking speed, e.g. `+15%` or `-10%` |
 | `full_read_max_words` | `120` | Replies up to this many spoken words are read in full |
 | `gist_max_words` | `60` | Longer replies: at most this many words of the opening paragraph |

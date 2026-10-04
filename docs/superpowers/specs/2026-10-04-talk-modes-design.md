@@ -1,7 +1,7 @@
 # Claude Talk: Speech Modes
 
 **Date:** 2026-10-04
-**Status:** Approved in conversation, awaiting written review
+**Status:** Implemented
 **Owner:** Omar Lodhi
 **Builds on:** `2026-10-04-claude-talk-design.md` (the main spec; §-numbers below that say "main spec" refer to it)
 
