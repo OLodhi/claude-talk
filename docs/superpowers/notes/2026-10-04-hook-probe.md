@@ -43,3 +43,13 @@ Decision-rule check:
 - Probe A and B both blocked `/talk` (neither printed `PROBE-EXPANDED`), so the "stop and report" rule does not trigger. UserPromptExpansion is the blocking hook that works; UserPromptSubmit blocking for `/talk` is unproven in `-p` mode.
 - Q4 has `last_assistant_message`, so no transcript fallback is needed.
 - `prompt_id` is present in every event seen.
+
+## Interactive check (Task 10)
+
+Run by Omar in a fresh interactive Claude Code session on 2026-10-04.
+
+- Overall: "working pretty well". `/talk` toggled, and replies were spoken in the talk session.
+- Feedback: long replies should also read the closing paragraph, which led to Change A (commit e2141d3). Long replies now say the gist, then "The remainder of details are on screen.", then the closing question or offer.
+- Checks 3 (Space interrupts) and 5 (offline fallback voice) were not reported individually. Omar chose to merge. Both paths were verified earlier through logs (Task 7: `: stopped`, `: fallback`).
+- WAIT_FOR_SPEAKER: stays False, because speech played in the interactive session, so the detached speaker survives the Stop hook.
+- Still unverified interactively: whether UserPromptSubmit sees a raw `/talk`, and whether a `prompt_source` field is present. Both are harmless either way (see rulings R6, R18).
