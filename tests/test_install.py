@@ -85,3 +85,10 @@ def test_command_points_at_this_installs_log(tmp_path, talk_home):
     assert install.main(["--claude-dir", str(tmp_path / "claude")]) == 0
     text = (tmp_path / "claude" / "commands" / "talk.md").read_text(encoding="utf-8")
     assert str(talk_home / "logs" / "talk.log") in text
+
+
+def test_command_offers_the_modes():
+    frontmatter = install.command_md().split("---")[1]
+    # quoted: the description contains ": ", which strict YAML rejects in a plain value
+    assert 'argument-hint: "[gist|full|summary]"' in frontmatter
+    assert 'description: "Turn reading replies aloud on or off, or pick a mode: gist, full or summary"' in frontmatter

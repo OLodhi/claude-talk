@@ -16,7 +16,8 @@ HOOK_MODULE = "talk.hooks"
 
 def command_md() -> str:
     return f"""---
-description: Turn Claude reading its replies aloud on or off for this session
+description: "Turn reading replies aloud on or off, or pick a mode: gist, full or summary"
+argument-hint: "[gist|full|summary]"
 disable-model-invocation: true
 ---
 Reply with exactly this sentence and nothing else: "Talk mode isn't set up correctly. Check {paths.root() / 'logs' / 'talk.log'}."
